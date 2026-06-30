@@ -16,11 +16,10 @@ export async function GET() {
     client_uri: baseUrl,
     logo_uri: `${baseUrl}/favicon.ico`,
     grant_types: [
-      "client_credentials",
-      "urn:ietf:params:oauth:grant-type:token-exchange",
-      "urn:openid:params:grant-type:ciba",
+      "authorization_code",
+      "refresh_token",
     ],
-    token_endpoint_auth_method: "client_secret_basic",
+    token_endpoint_auth_method: "none",
     scope: [
       "openid",
       "inventory:read",
