@@ -16,6 +16,9 @@ import type {
   TokenChainState,
   OboTokenNode,
   StepUpTokenNode,
+  Activity,
+  ActivityStep,
+  ActivityStepKind,
 } from "@/lib/types"
 import { PORTALS, type PortalId } from "@/lib/theme-config"
 
@@ -41,6 +44,10 @@ interface WorkspaceContextValue {
   clearPendingPrompt: () => void
   activeToolId: string | null
   setActiveToolId: (id: string | null) => void
+  activities: Activity[]
+  startActivity: (title: string) => string
+  addActivityStep: (activityId: string, step: Omit<ActivityStep, "id">) => void
+  completeActivity: (activityId: string, title?: string) => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
@@ -80,6 +87,32 @@ export function WorkspaceProvider({
   const triggerPrompt = useCallback((text: string) => setPendingPrompt(text), [])
   const clearPendingPrompt = useCallback(() => setPendingPrompt(null), [])
   const [activeToolId, setActiveToolId] = useState<string | null>(null)
+  const [activities, setActivities] = useState<Activity[]>([])
+
+  const startActivity = useCallback((title: string): string => {
+    const id = crypto.randomUUID()
+    setActivities((prev) => [{
+      id, title, steps: [], status: "running",
+      ts: new Date().toLocaleTimeString("en-US", { hour12: false }),
+    }, ...prev])
+    return id
+  }, [])
+
+  const addActivityStep = useCallback((activityId: string, step: Omit<ActivityStep, "id">) => {
+    setActivities((prev) => prev.map((a) =>
+      a.id === activityId
+        ? { ...a, steps: [...a.steps, { ...step, id: crypto.randomUUID() }] }
+        : a,
+    ))
+  }, [])
+
+  const completeActivity = useCallback((activityId: string, title?: string) => {
+    setActivities((prev) => prev.map((a) =>
+      a.id === activityId
+        ? { ...a, status: "complete", ...(title ? { title } : {}) }
+        : a,
+    ))
+  }, [])
 
   const [tokenChain, setTokenChain] = useState<TokenChainState>({
     oidc: {
@@ -175,8 +208,13 @@ export function WorkspaceProvider({
       clearPendingPrompt,
       activeToolId,
       setActiveToolId,
+      activities,
+      startActivity,
+      addActivityStep,
+      completeActivity,
     }),
-    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken, pendingPrompt, triggerPrompt, clearPendingPrompt, activeToolId, setActiveToolId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken, pendingPrompt, triggerPrompt, clearPendingPrompt, activeToolId, setActiveToolId, activities, startActivity, addActivityStep, completeActivity],
   )
 
   return (

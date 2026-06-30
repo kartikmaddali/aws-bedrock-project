@@ -73,6 +73,28 @@ export interface ChatMessage {
   pending?: boolean
 }
 
+// ── Activity Feed ─────────────────────────────────────────────────────────────
+
+export type ActivityStepKind = "user" | "agentcore" | "obo" | "ciba" | "tool" | "result"
+
+export interface ActivityStep {
+  id: string
+  kind: ActivityStepKind
+  label: string
+  detail?: string
+  meta?: string
+  source?: "auth0" | "simulated"
+  status: "running" | "done" | "error"
+}
+
+export interface Activity {
+  id: string
+  title: string
+  steps: ActivityStep[]
+  status: "running" | "complete" | "error"
+  ts: string
+}
+
 // ── Token Chain ───────────────────────────────────────────────────────────────
 
 export interface TokenNode {

@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PORTALS } from "@/lib/theme-config"
+import { TOOLS } from "@/lib/tools"
 import { cn } from "@/lib/utils"
 import type { ChatMessage, OboTokenNode } from "@/lib/types"
 import type { StepUpResult } from "@/components/ciba-dialog"
@@ -29,12 +30,13 @@ function initials(name: string) {
 }
 
 export function ChatPanel() {
-  const { session, portal, addLog, setStage, setOboToken, setStepUpToken, pendingPrompt, clearPendingPrompt, setActiveToolId } = useWorkspace()
+  const { session, portal, addLog, setStage, setOboToken, setStepUpToken, pendingPrompt, clearPendingPrompt, setActiveToolId, startActivity, addActivityStep, completeActivity } = useWorkspace()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
   const [activeScopes, setActiveScopes] = useState<string[]>([])
   const [cibaRequest, setCibaRequest] = useState<CibaRequest | null>(null)
+  const [currentActivityId, setCurrentActivityId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const welcome = PORTALS[portal].welcome
@@ -85,6 +87,22 @@ export function ChatPanel() {
     setBusy(true)
     setActiveToolId(null)
     setStage("scoped-tools", "active")
+
+    // Start a new activity and record the user step immediately.
+    const actId = startActivity("Processing…")
+    setCurrentActivityId(actId)
+    addActivityStep(actId, {
+      kind: "user",
+      label: "Message sent to AgentCore",
+      detail: prompt.length > 80 ? `"${prompt.slice(0, 80)}…"` : `"${prompt}"`,
+      status: "done",
+    })
+    addActivityStep(actId, {
+      kind: "agentcore",
+      label: "AgentCore orchestrating…",
+      detail: "Routing prompt → selecting action group",
+      status: "running",
+    })
 
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
     const pendingId = crypto.randomUUID()
@@ -137,6 +155,21 @@ export function ChatPanel() {
           }
 
           setActiveScopes(payload.scopes)
+
+          // Update the running AgentCore step with the resolved tool.
+          if (currentActivityId) {
+            const toolName = payload.toolId
+              ? (TOOLS.find(t => t.id === payload.toolId)?.name ?? payload.toolId)
+              : "No tool matched"
+            addActivityStep(currentActivityId, {
+              kind: "agentcore",
+              label: `Action group selected: ${toolName}`,
+              detail: `Source: ${payload.source === "bedrock" ? "AWS Bedrock AgentCore (live)" : "Simulated AgentCore orchestrator"}`,
+              meta: `sessionAttributes.sub=${payload.sessionAttributes.sub}`,
+              status: "done",
+            })
+          }
+
           addLog({
             kind: "agent",
             label:
@@ -165,6 +198,16 @@ export function ChatPanel() {
               detail: `Agent delegated token minted — sub bound to user, act bound to CIMD agent principal (${payload.oboToken.source}).`,
               meta: `act.sub=…/client-metadata.json scope=${payload.oboToken.scope}`,
             })
+            if (currentActivityId) {
+              addActivityStep(currentActivityId, {
+                kind: "obo",
+                label: "Auth0 OBO token exchange (RFC 8693)",
+                detail: `POST /oauth/token · grant_type=token-exchange\nsubject_token: Carlos's access_token\nactor_token: CIMD URL (agent identity)`,
+                meta: `scope: ${payload.oboToken.scope} · act.sub: …/client-metadata.json · token: ${payload.oboToken.preview}`,
+                source: payload.oboToken.source,
+                status: "done",
+              })
+            }
           }
 
           setMessages((prev) =>
@@ -182,8 +225,17 @@ export function ChatPanel() {
 
           if (payload.requiresApproval) {
             // CIBA path — do NOT mark Stage 2 complete here.
-            // Stage 2 should only complete from a successful scoped (non-CIBA) tool call.
             setStage("ciba", "active")
+            if (currentActivityId) {
+              addActivityStep(currentActivityId, {
+                kind: "ciba",
+                label: `CIBA triggered — $${payload.estimatedValue.toLocaleString()} exceeds $2,500 threshold`,
+                detail: "AgentCore ReturnControl → Auth0 bc-authorize. Backchannel push to Dispatch Manager.",
+                meta: `grant_type: urn:openid:params:grant-type:ciba · agent: CIMD URL`,
+                source: "auth0",
+                status: "running",
+              })
+            }
             setCibaRequest({
               toolId: payload.toolId ?? "process_order",
               estimatedValue: payload.estimatedValue,
@@ -192,7 +244,20 @@ export function ChatPanel() {
           } else {
             setStage("scoped-tools", "complete")
             if (payload.toolId) runScopedTool(payload.toolId, payload.scopes)
-            // Guide presenter to Stage 3 after first successful scoped tool call.
+            if (currentActivityId) {
+              const toolName = payload.toolId
+                ? (TOOLS.find(t => t.id === payload.toolId)?.name ?? payload.toolId)
+                : "Unknown tool"
+              addActivityStep(currentActivityId, {
+                kind: "tool",
+                label: `Tool executed: ${toolName}`,
+                detail: `Scope check passed · ${payload.scopes.join(", ")} satisfied`,
+                meta: `org: ${session.org} · tier: ${session.tier}`,
+                status: "done",
+              })
+              completeActivity(currentActivityId, toolName)
+              setCurrentActivityId(null)
+            }
             setMessages((prev) => [
               ...prev,
               {
@@ -270,9 +335,37 @@ export function ChatPanel() {
 
   const onCibaResolved = (approved: boolean, stepUp?: StepUpResult) => {
     const req = cibaRequest
+    const actId = currentActivityId
     setCibaRequest(null)
     setBusy(false)
     setStage("scoped-tools", "complete")
+    setCurrentActivityId(null)
+
+    if (actId) {
+      addActivityStep(actId, {
+        kind: "ciba",
+        label: approved ? "CIBA approved — step-up token issued" : "CIBA denied — action blocked",
+        detail: approved
+          ? "Dispatch Manager approved via Auth0 backchannel. Step-up token minted."
+          : "Dispatch Manager denied the request.",
+        meta: stepUp ? `scope: ${stepUp.scope} · token: ${stepUp.preview}` : undefined,
+        source: stepUp?.source ?? "simulated",
+        status: approved ? "done" : "error",
+      })
+      if (approved && req) {
+        addActivityStep(actId, {
+          kind: "tool",
+          label: `Tool executed: ${TOOLS.find(t => t.id === req.toolId)?.name ?? req.toolId}`,
+          detail: "Executed with step-up scopes: orders:write + payments:charge",
+          meta: `org: ${session.org} · amount: $${req.estimatedValue.toLocaleString()}`,
+          status: "done",
+        })
+        completeActivity(actId, `${TOOLS.find(t => t.id === req.toolId)?.name ?? req.toolId} — CIBA ✓`)
+      } else {
+        completeActivity(actId, "High-Value Order — Denied")
+      }
+    }
+
     if (approved && stepUp) {
       const cimdUrl = typeof window !== "undefined"
         ? `${window.location.origin}/.well-known/client-metadata.json`
@@ -314,14 +407,11 @@ export function ChatPanel() {
             <Bot className="size-4" />
           </div>
           <div className="flex flex-col leading-tight">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">HVAC Copilot</span>
-              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-amber-600">
-                AgentCore SIM
-              </span>
-            </div>
+            <span className="text-sm font-semibold">HVAC Copilot</span>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Cpu className="size-3" /> AWS Bedrock AgentCore Orchestrator
+              <Cpu className="size-3" />
+              AWS Bedrock AgentCore
+              <span className="rounded bg-amber-500/15 px-1 py-0.5 font-mono text-[9px] font-bold text-amber-600">SIM</span>
             </span>
           </div>
         </div>
