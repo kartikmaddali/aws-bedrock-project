@@ -43,6 +43,7 @@ export type ComplianceKind =
   | "agent"
   | "vault"
   | "guardrail"
+  | "delegation"
 
 export interface ComplianceEntry {
   id: string
@@ -71,6 +72,46 @@ export interface ChatMessage {
   guardrail?: boolean
   pending?: boolean
 }
+
+// ── Token Chain ───────────────────────────────────────────────────────────────
+
+export interface TokenNode {
+  preview: string
+  ts: string
+  source: "auth0" | "simulated"
+}
+
+export interface OidcTokenNode extends TokenNode {
+  sub: string
+  name: string
+  org: string
+  tier: string
+}
+
+export interface AccessTokenNode extends TokenNode {
+  scopes: string[]
+}
+
+export interface OboTokenNode extends TokenNode {
+  sub: string
+  actSub: string
+  scope: string
+  toolId: string
+}
+
+export interface StepUpTokenNode extends TokenNode {
+  scope: string
+  actSub: string
+}
+
+export interface TokenChainState {
+  oidc: OidcTokenNode | null
+  access: AccessTokenNode | null
+  obo: OboTokenNode | null
+  stepUp: StepUpTokenNode | null
+}
+
+// ── Agent response ─────────────────────────────────────────────────────────────
 
 export interface AgentResponsePayload {
   message: string

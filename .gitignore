@@ -31,3 +31,6 @@ next-env.d.ts
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Local env copies (may contain real credentials)
+import.env

@@ -4,9 +4,14 @@ import {
   type InvokeAgentCommandInput,
   type ReturnControlPayload,
 } from "@aws-sdk/client-bedrock-agent-runtime"
-import { getSession } from "@/lib/auth0"
+import {
+  getSession,
+  getAccessToken,
+  exchangeOboToken,
+  getCimdUrl,
+} from "@/lib/auth0"
 import { TOOLS, CIBA_THRESHOLD_USD } from "@/lib/tools"
-import type { ToolDefinition } from "@/lib/types"
+import type { ToolDefinition, OboTokenNode } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
@@ -216,6 +221,7 @@ export async function POST(req: Request) {
       org: session.org,
       tier: session.tier,
       "auth0:source": session.source,
+      "agent:cimd": getCimdUrl(),
     }
 
     if (awsConfigured()) {
@@ -237,11 +243,9 @@ export async function POST(req: Request) {
       tool = routed.tool
       estimatedValue = routed.value
       const text = simulatedReply(prompt, tool, estimatedValue, session.org)
-      // Emit in small chunks so the UI still shows a typing effect.
       const words = text.split(" ")
       for (let i = 0; i < words.length; i++) {
         emit("delta", { text: (i === 0 ? "" : " ") + words[i] })
-        // Tiny yield to keep the stream feeling natural.
         await new Promise((r) => setTimeout(r, 30))
       }
     }
@@ -252,6 +256,28 @@ export async function POST(req: Request) {
     sessionAttributes["agent:scopes"] = scopes.join(" ")
     sessionAttributes["guardrail:ciba"] = String(requiresApproval)
 
+    // ── OBO token exchange (RFC 8693) ─────────────────────────────────────
+    // Exchange the user's access_token for a delegated token scoped to exactly
+    // what this tool needs. Simulated when BEDROCK_AGENT_CLIENT_SECRET is absent.
+    let oboToken: OboTokenNode | null = null
+    if (tool && scopes.length > 0) {
+      const userAccessToken = await getAccessToken()
+      const subjectToken = userAccessToken ?? "simulated_subject_token"
+      const exchanged = await exchangeOboToken(subjectToken, scopes.join(" "))
+      oboToken = {
+        preview: exchanged.preview,
+        ts: new Date().toLocaleTimeString("en-US", { hour12: false }),
+        source: exchanged.source,
+        sub: session.sub,
+        actSub: getCimdUrl(),
+        scope: scopes.join(" "),
+        toolId: tool.id,
+      }
+      // Thread the OBO token preview into Bedrock session state.
+      sessionAttributes["obo:token_preview"] = exchanged.preview
+      sessionAttributes["obo:scope"] = scopes.join(" ")
+    }
+
     emit("done", {
       source,
       toolId: tool?.id ?? null,
@@ -259,6 +285,7 @@ export async function POST(req: Request) {
       requiresApproval,
       estimatedValue,
       sessionAttributes,
+      oboToken,
     })
   })
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth0Config, getSession } from "@/lib/auth0"
+import { auth0Config, getSession, getCimdUrl } from "@/lib/auth0"
 import type { CibaInitResponse, CibaPollResponse } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -36,6 +36,9 @@ export async function POST(req: Request) {
           iss: `https://${domain}/`,
           sub: session.sub,
         }),
+        // A4AA: identify the agent principal making the request.
+        actor_token: getCimdUrl(),
+        actor_token_type: "urn:ietf:params:oauth:token-type:access_token",
       })
       if (audience) body.set("audience", audience)
       const resp = await fetch(`https://${domain}/bc-authorize`, {

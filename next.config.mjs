@@ -11,6 +11,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/client-metadata.json",
+        destination: "/api/cimd",
+      },
+    ]
+  },
 }
 
 export default nextConfig

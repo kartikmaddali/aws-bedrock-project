@@ -21,12 +21,18 @@ export interface CibaRequest {
 
 type Phase = "initiating" | "pending" | "approved" | "denied" | "expired"
 
+export interface StepUpResult {
+  preview: string
+  scope: string
+  source: "auth0" | "simulated"
+}
+
 export function CibaDialog({
   request,
   onResolved,
 }: {
   request: CibaRequest | null
-  onResolved: (approved: boolean) => void
+  onResolved: (approved: boolean, stepUp?: StepUpResult) => void
 }) {
   const { addLog, setStage } = useWorkspace()
   const [phase, setPhase] = useState<Phase>("initiating")
@@ -84,11 +90,16 @@ export function CibaDialog({
           addLog({
             kind: "ciba",
             label: "Backchannel approval granted",
-            detail: "Dispatch Manager approved. Scoped access token minted for the order.",
+            detail: "Dispatch Manager approved. Scoped step-up token minted: orders:write payments:charge.",
             meta: pd.tokenPreview ? `access_token=${pd.tokenPreview}` : undefined,
           })
           setStage("ciba", "complete")
-          setTimeout(() => !cancelled && onResolved(true), 1100)
+          const stepUp: StepUpResult = {
+            preview: pd.tokenPreview ?? `eyJhbGci…${crypto.randomUUID().slice(0, 6)}`,
+            scope: "orders:write payments:charge",
+            source: pd.source,
+          }
+          setTimeout(() => !cancelled && onResolved(true, stepUp), 1100)
         } else {
           setPhase(pd.status === "denied" ? "denied" : "expired")
           addLog({
@@ -96,7 +107,7 @@ export function CibaDialog({
             label: `Backchannel ${pd.status}`,
             detail: "The high-value action was not authorized.",
           })
-          setTimeout(() => !cancelled && onResolved(false), 1100)
+          setTimeout(() => !cancelled && onResolved(false, undefined), 1100)
         }
       }
       timer.current = setTimeout(poll, intervalMs)

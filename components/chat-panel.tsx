@@ -19,7 +19,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { PORTALS } from "@/lib/theme-config"
 import { cn } from "@/lib/utils"
-import type { ChatMessage } from "@/lib/types"
+import type { ChatMessage, OboTokenNode } from "@/lib/types"
+import type { StepUpResult } from "@/components/ciba-dialog"
 
 const SUGGESTIONS = [
   "Find 3-ton condensers in stock near my hub",
@@ -33,7 +34,7 @@ function initials(name: string) {
 }
 
 export function ChatPanel() {
-  const { session, portal, addLog, setStage } = useWorkspace()
+  const { session, portal, addLog, setStage, setOboToken, setStepUpToken } = useWorkspace()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -129,6 +130,7 @@ export function ChatPanel() {
             requiresApproval: boolean
             estimatedValue: number
             sessionAttributes: Record<string, string>
+            oboToken: OboTokenNode | null
           }
 
           setActiveScopes(payload.scopes)
@@ -139,8 +141,8 @@ export function ChatPanel() {
                 ? "Bedrock AgentCore invoked"
                 : "Agent reasoning (simulated)",
             detail:
-              "Auth0 identity injected into sessionState.sessionAttributes for delegated identity chain.",
-            meta: `sub=${payload.sessionAttributes.sub} org="${payload.sessionAttributes.org}"`,
+              "Auth0 identity + CIMD agent principal injected into Bedrock sessionState.sessionAttributes.",
+            meta: `sub=${payload.sessionAttributes.sub} cimd=${payload.sessionAttributes["agent:cimd"]?.split("/").pop()}`,
           })
           if (payload.scopes.length) {
             addLog({
@@ -148,6 +150,15 @@ export function ChatPanel() {
               label: "Agent bound to OAuth scopes",
               detail: `Tool "${payload.toolId}" is gated to least-privilege scopes.`,
               meta: `scopes=[${payload.scopes.join(" ")}]`,
+            })
+          }
+          if (payload.oboToken) {
+            setOboToken(payload.oboToken)
+            addLog({
+              kind: "delegation",
+              label: "OBO token exchanged (RFC 8693)",
+              detail: `Agent delegated token minted — sub bound to user, act bound to CIMD agent principal (${payload.oboToken.source}).`,
+              meta: `act.sub=…/client-metadata.json scope=${payload.oboToken.scope}`,
             })
           }
 
@@ -241,11 +252,29 @@ export function ChatPanel() {
     }
   }
 
-  const onCibaResolved = (approved: boolean) => {
+  const onCibaResolved = (approved: boolean, stepUp?: StepUpResult) => {
     const req = cibaRequest
     setCibaRequest(null)
     setBusy(false)
     setStage("scoped-tools", "complete")
+    if (approved && stepUp) {
+      const cimdUrl = typeof window !== "undefined"
+        ? `${window.location.origin}/.well-known/client-metadata.json`
+        : "/.well-known/client-metadata.json"
+      setStepUpToken({
+        preview: stepUp.preview,
+        ts: new Date().toLocaleTimeString("en-US", { hour12: false }),
+        source: stepUp.source,
+        scope: stepUp.scope,
+        actSub: cimdUrl,
+      })
+      addLog({
+        kind: "delegation",
+        label: "Step-up token issued via CIBA",
+        detail: `Dispatch Manager approved. Auth0 minted a scoped step-up token for the agent (${stepUp.source}).`,
+        meta: `scope=${stepUp.scope} token=${stepUp.preview}`,
+      })
+    }
     setMessages((prev) => [
       ...prev,
       {

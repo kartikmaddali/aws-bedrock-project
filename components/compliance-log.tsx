@@ -9,6 +9,7 @@ import {
   Boxes,
   UserCheck,
   ShieldCheck,
+  GitMerge,
 } from "lucide-react"
 import { useWorkspace } from "@/components/workspace-provider"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -23,6 +24,7 @@ const KIND_META: Record<ComplianceKind, { icon: typeof KeyRound; color: string }
   agent: { icon: Bot, color: "text-foreground" },
   vault: { icon: Boxes, color: "text-primary" },
   guardrail: { icon: ShieldCheck, color: "text-primary" },
+  delegation: { icon: GitMerge, color: "text-violet-500" },
 }
 
 export function ComplianceLog() {
@@ -38,7 +40,7 @@ export function ComplianceLog() {
         <span className="font-mono text-[10px] text-muted-foreground">{log.length} events</span>
       </div>
 
-      <ScrollArea className="h-[calc(100svh-12rem)] rounded-lg border border-border bg-card/60">
+      <ScrollArea className="h-[calc(100svh-40rem)] min-h-[16rem] rounded-lg border border-border bg-card/60 lg:h-full">
         <ol className="flex flex-col">
           {log.map((entry, i) => {
             const meta = KIND_META[entry.kind]

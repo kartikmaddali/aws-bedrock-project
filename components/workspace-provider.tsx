@@ -13,6 +13,9 @@ import type {
   ComplianceEntry,
   ComplianceKind,
   StageId,
+  TokenChainState,
+  OboTokenNode,
+  StepUpTokenNode,
 } from "@/lib/types"
 import { PORTALS, type PortalId } from "@/lib/theme-config"
 
@@ -30,6 +33,9 @@ interface WorkspaceContextValue {
     detail: string
     meta?: string
   }) => void
+  tokenChain: TokenChainState
+  setOboToken: (token: OboTokenNode) => void
+  setStepUpToken: (token: StepUpTokenNode) => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
@@ -47,10 +53,16 @@ function nowStamp() {
 export function WorkspaceProvider({
   session,
   auth0Configured,
+  idTokenPreview,
+  accessTokenPreview,
+  isSimulatedSession,
   children,
 }: {
   session: CarlosClaims
   auth0Configured: boolean
+  idTokenPreview: string
+  accessTokenPreview: string
+  isSimulatedSession: boolean
   children: ReactNode
 }) {
   const [portal, setPortalState] = useState<PortalId>("apex")
@@ -58,6 +70,25 @@ export function WorkspaceProvider({
     context: "complete",
     "scoped-tools": "idle",
     ciba: "idle",
+  })
+  const [tokenChain, setTokenChain] = useState<TokenChainState>({
+    oidc: {
+      preview: idTokenPreview,
+      ts: nowStamp(),
+      source: isSimulatedSession ? "simulated" : "auth0",
+      sub: session.sub,
+      name: session.name,
+      org: session.org,
+      tier: session.tier,
+    },
+    access: {
+      preview: accessTokenPreview,
+      ts: nowStamp(),
+      source: isSimulatedSession ? "simulated" : "auth0",
+      scopes: ["openid", "profile", "email", "inventory:read", "pricing:read", "orders:read"],
+    },
+    obo: null,
+    stepUp: null,
   })
   const [log, setLog] = useState<ComplianceEntry[]>(() => [
     {
@@ -95,6 +126,14 @@ export function WorkspaceProvider({
     [],
   )
 
+  const setOboToken = useCallback((token: OboTokenNode) => {
+    setTokenChain((prev) => ({ ...prev, obo: token }))
+  }, [])
+
+  const setStepUpToken = useCallback((token: StepUpTokenNode) => {
+    setTokenChain((prev) => ({ ...prev, stepUp: token }))
+  }, [])
+
   const setPortal = useCallback(
     (p: PortalId) => {
       setPortalState(p)
@@ -109,8 +148,20 @@ export function WorkspaceProvider({
   )
 
   const value = useMemo(
-    () => ({ session, auth0Configured, portal, setPortal, stages, setStage, log, addLog }),
-    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog],
+    () => ({
+      session,
+      auth0Configured,
+      portal,
+      setPortal,
+      stages,
+      setStage,
+      log,
+      addLog,
+      tokenChain,
+      setOboToken,
+      setStepUpToken,
+    }),
+    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken],
   )
 
   return (

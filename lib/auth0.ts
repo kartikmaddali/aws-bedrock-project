@@ -46,6 +46,85 @@ export const SIMULATED_CLAIMS: CarlosClaims = {
   },
 }
 
+// ---------------------------------------------------------------------------
+// CIMD + OBO helpers for Auth0 A4AA (Agent as Principal).
+// ---------------------------------------------------------------------------
+
+/** The URL of this app's CIMD document — this IS the agent's client_id. */
+export function getCimdUrl(): string {
+  const base = process.env.APP_BASE_URL ?? process.env.AUTH0_BASE_URL ?? ""
+  return `${base}/.well-known/client-metadata.json`
+}
+
+/** Read the user's access_token from the httpOnly cookie set at callback. */
+export async function getAccessToken(): Promise<string | null> {
+  const store = await cookies()
+  return store.get("ha_access_token")?.value ?? null
+}
+
+function oboConfigured(): boolean {
+  return Boolean(
+    process.env.BEDROCK_AGENT_CLIENT_SECRET &&
+      auth0Config().domain &&
+      auth0Config().clientId,
+  )
+}
+
+/**
+ * RFC 8693 token exchange: swaps the user's access_token for a delegated
+ * OBO token carrying both the user's sub and the agent's act claim.
+ * Falls back to a realistic simulated token when not configured.
+ */
+export async function exchangeOboToken(
+  userAccessToken: string,
+  scope: string,
+): Promise<{ preview: string; source: "auth0" | "simulated" }> {
+  const { domain, audience } = auth0Config()
+  const clientSecret = process.env.BEDROCK_AGENT_CLIENT_SECRET
+
+  if (oboConfigured() && domain && clientSecret) {
+    try {
+      const cimdUrl = getCimdUrl()
+      const body = new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+        client_id: cimdUrl,
+        client_secret: clientSecret,
+        subject_token: userAccessToken,
+        subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+        scope,
+        ...(audience ? { audience } : {}),
+      })
+      const resp = await fetch(`https://${domain}/oauth/token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      })
+      const data = await resp.json()
+      if (resp.ok && data.access_token) {
+        const token = data.access_token as string
+        return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0" }
+      }
+      console.log("[v0] OBO exchange failed:", data)
+    } catch (err) {
+      console.log("[v0] OBO exchange error:", (err as Error).message)
+    }
+  }
+
+  // Simulated OBO token — realistic JWT structure for demo purposes.
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: "sim|user",
+      act: { sub: getCimdUrl() },
+      scope,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    }),
+  ).toString("base64url")
+  const token = `${header}.${payload}.sim_sig_${crypto.randomUUID().slice(0, 8)}`
+  return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "simulated" }
+}
+
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null
 function getJwks() {
   const { domain } = auth0Config()
