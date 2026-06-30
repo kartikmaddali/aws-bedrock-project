@@ -16,6 +16,17 @@ export async function GET(req: Request) {
   const store = await cookies()
   const expectedState = store.get("ha_oauth_state")?.value
 
+  // Capture Auth0-returned errors (e.g. invalid_request, access_denied) before
+  // checking for code so the real error surfaces in the UI.
+  const auth0Error = url.searchParams.get("error")
+  const auth0ErrorDesc = url.searchParams.get("error_description")
+  if (auth0Error) {
+    console.log("[v0] Auth0 returned error:", auth0Error, auth0ErrorDesc)
+    return NextResponse.redirect(
+      `${origin}/?error=${encodeURIComponent(auth0Error)}&desc=${encodeURIComponent(auth0ErrorDesc ?? "")}`,
+    )
+  }
+
   if (!code || !domain || !clientId || !clientSecret) {
     return NextResponse.redirect(`${origin}/?error=auth_config`)
   }
