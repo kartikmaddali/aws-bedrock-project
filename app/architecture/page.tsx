@@ -1,6 +1,6 @@
 import {
   Cpu, ShieldCheck, ArrowRight, CheckCircle2,
-  XCircle, Bot, User, Database, Link2,
+  Bot, User, Database, Link2,
   GitMerge, ShieldAlert, Boxes, Network, LayoutDashboard,
 } from "lucide-react"
 
@@ -252,40 +252,40 @@ const VALUE_PROPS = [
     title: "CIMD — Agent Identity Standard",
     tagline: "The agent has a passport, not just a name.",
     what: "Client ID Metadata Document hosted on a secure domain. The URL itself is the agent's cryptographic identity in Auth0.",
-    why: "IAM roles identify AWS resources. CIMD identifies agents across any system — AWS, on-prem, SaaS. Enterprises register trusted agents once via Dynamic Client Registration.",
+    why: "AWS AgentCore orchestrates agent actions, but enterprise customers need to know which agent they're trusting. CIMD gives each agent a verifiable, portable identity that works across AWS and any other system — no SDK required.",
     demo: "https://aws-bedrock-project.vercel.app/.well-known/client-metadata.json",
     demoLabel: "Live CIMD document",
-    iam: "IAM roles are AWS-scoped and can't represent cross-system agent identity",
+    extend: "Extends AgentCore with a trust anchor: enterprises explicitly register which AWS agents are authorized to operate in their Auth0 tenant via Dynamic Client Registration.",
   },
   {
     icon: GitMerge,
     title: "OBO — Delegated Authorization",
     tagline: "The agent proves who it's acting for.",
-    what: "RFC 8693 token exchange: user's token → delegated token with sub=user and act=agent. Scoped to exactly the tool being invoked.",
-    why: "Without OBO, the agent either has full user privileges (too broad) or its own fixed permissions (loses user context). OBO gives least-privilege delegation.",
+    what: "RFC 8693 token exchange: user's access token → delegated token with sub=user and act=agent. Scoped to exactly the tool being invoked.",
+    why: "Without OBO, the agent either inherits full user privileges (too broad) or holds its own fixed permissions (loses user context). OBO gives cryptographically-enforced least-privilege delegation per action group.",
     demo: '{ "sub": "carlos", "act": { "sub": "cimd-url", "urn:amazon:bedrock:action_group": "search_inventory" }, "scope": "inventory:read" }',
     demoLabel: "OBO token act claim",
-    iam: "IAM can't express 'this Lambda is acting on behalf of this specific enterprise user with their delegated consent'",
+    extend: "Extends AgentCore's ReturnControl with a verifiable delegation chain — downstream APIs can validate the full user→agent→action hierarchy without calling back to AWS.",
   },
   {
     icon: ShieldAlert,
     title: "CIBA — Human-in-the-Loop Approval",
     tagline: "High-value actions wait for a human.",
     what: "Client-Initiated Backchannel Authentication. Agent triggers a push to the Dispatch Manager's device. Auth0 polls until approved — then mints a step-up token.",
-    why: "AI agents can make mistakes on high-value actions. CIBA adds a human checkpoint that's cryptographically enforced — the agent literally cannot charge payment without the step-up token.",
+    why: "AI agents can make costly mistakes on high-value actions. CIBA adds a cryptographically-enforced human checkpoint — the agent cannot charge payment without the step-up token, full stop.",
     demo: "orders:write + payments:charge only issued after Dispatch Manager taps Approve",
     demoLabel: "Step-up scope gate",
-    iam: "IAM has no concept of backchannel push approval or step-up token issuance based on human decision",
+    extend: "Maps naturally to AgentCore's ReturnControl: when AgentCore hands control back to the client, Auth0 CIBA is the mechanism that resolves the human decision and issues the authorization token.",
   },
   {
     icon: Boxes,
     title: "Token Vault — Third-Party Token Management",
     tagline: "The agent borrows access, never holds credentials.",
-    what: "Auth0 stores scoped third-party tokens (ERP, calendar, accounting) linked to the user. The agent borrows them on demand via the My Account API.",
-    why: "The agent doesn't store passwords or long-lived credentials. It requests a time-limited scoped token per action. The user can revoke any connection at any time.",
+    what: "Auth0 stores scoped third-party OAuth tokens (ERP, calendar, accounting) linked to the user. The agent borrows them on demand via the My Account API.",
+    why: "Enterprise contractors connect to dozens of SaaS tools. The agent needs scoped access to each — without storing passwords or long-lived secrets. Users can revoke any connection at any time.",
     demo: "Google Workspace, Apex Field ERP, QuickBooks — all connected via Token Vault",
     demoLabel: "Connected integrations",
-    iam: "IAM Secrets Manager stores credentials but doesn't handle user-delegated third-party OAuth tokens or per-user consent management",
+    extend: "Extends AgentCore action groups to reach any third-party API — the agent calls the Token Vault, gets a scoped token, executes the action. No secrets stored in the agent runtime.",
   },
 ]
 
@@ -294,8 +294,8 @@ function ValueProps() {
     <Section id="value-props">
       <SectionHeading
         label="03 — Auth0 Value Propositions"
-        title="What Auth0 adds that AWS can't"
-        subtitle="Four capabilities that complement AgentCore — each solving a problem that IAM or Cognito alone cannot address in enterprise agentic flows."
+        title="What Auth0 adds to the AgentCore stack"
+        subtitle="Four capabilities purpose-built for enterprise identity and agentic authorization — each one extending what AgentCore can do, not replacing it."
       />
       <div className="grid gap-4 sm:grid-cols-2">
         {VALUE_PROPS.map((v) => {
@@ -326,11 +326,11 @@ function ValueProps() {
                 </code>
               </div>
 
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 p-2.5">
-                <XCircle className="size-3.5 shrink-0 text-destructive mt-0.5" />
+              <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 p-2.5">
+                <ArrowRight className="size-3.5 shrink-0 text-primary mt-0.5" />
                 <p className="text-[11px] text-muted-foreground leading-snug">
-                  <span className="font-semibold text-destructive">Why not IAM: </span>
-                  {v.iam}
+                  <span className="font-semibold text-primary">Extends AgentCore: </span>
+                  {v.extend}
                 </p>
               </div>
             </div>
@@ -455,61 +455,116 @@ function TokenChainExplained() {
   )
 }
 
-// ── Section 6: Why not just IAM ───────────────────────────────────────────────
+// ── Section 6: Security layers ────────────────────────────────────────────────
 
-const COMPARISON = [
-  { capability: "Enterprise SSO (any IdP)",      iam: false, cognito: "partial", auth0: true  },
-  { capability: "Agent Identity (CIMD)",          iam: false, cognito: false,     auth0: true  },
-  { capability: "Cross-system OBO delegation",    iam: false, cognito: false,     auth0: true  },
-  { capability: "CIBA backchannel approval",      iam: false, cognito: false,     auth0: true  },
-  { capability: "Third-party Token Vault",        iam: false, cognito: false,     auth0: true  },
-  { capability: "Multi-tenant white-labeling",    iam: false, cognito: "partial", auth0: true  },
-  { capability: "Custom claims in tokens",        iam: false, cognito: "partial", auth0: true  },
-  { capability: "AWS resource authorization",     iam: true,  cognito: true,      auth0: false },
+const LAYERS = [
+  {
+    icon: Network,
+    label: "AWS IAM",
+    color: "amber",
+    domain: "AWS Resource Authorization",
+    desc: "Controls which AWS principals can invoke Lambda functions, read from S3, call API Gateway, or access Bedrock itself. The foundation of every AWS deployment.",
+    owns: [
+      "Lambda invocation policies",
+      "S3 bucket access",
+      "Bedrock model permissions",
+      "API Gateway resource policies",
+    ],
+    relationship: "AgentCore runs under an IAM role. Auth0 tokens are passed alongside — each doing its own job.",
+  },
+  {
+    icon: User,
+    label: "Amazon Cognito",
+    color: "blue",
+    domain: "App-level User Authentication",
+    desc: "User pools and identity pools for AWS-native applications. Great for consumer apps built entirely on AWS infrastructure.",
+    owns: [
+      "User registration & sign-in",
+      "Social identity federation",
+      "AWS credentials via identity pools",
+      "JWT issuance for AWS-hosted apps",
+    ],
+    relationship: "For enterprise B2B scenarios needing custom claims, multi-tenant branding, CIMD, OBO, and CIBA — Auth0 A4AA extends beyond Cognito's scope.",
+  },
+  {
+    icon: ShieldCheck,
+    label: "Auth0 A4AA",
+    color: "primary",
+    domain: "Enterprise Identity + Agentic Authorization",
+    desc: "Purpose-built for enterprise B2B identity and AI agent authorization. Handles identity federation, agent registration, delegated authorization, and human-in-the-loop approvals.",
+    owns: [
+      "Enterprise SSO (any IdP, any protocol)",
+      "Agent identity via CIMD standard",
+      "OBO delegated token exchange",
+      "CIBA backchannel human approval",
+      "Token Vault for third-party SaaS",
+      "Multi-tenant whitelabeling via claims",
+    ],
+    relationship: "Issues the tokens that AgentCore action groups consume. The token chain proves authorization at every layer — verifiable without calling back to AWS.",
+  },
 ]
 
-function Check({ val }: { val: boolean | "partial" }) {
-  if (val === true)      return <CheckCircle2 className="size-4 text-success mx-auto" />
-  if (val === "partial") return <span className="text-[11px] text-warning font-medium">Partial</span>
-  return <XCircle className="size-4 text-destructive/60 mx-auto" />
+const COLOR_LAYER: Record<string, { border: string; bg: string; text: string; label: string }> = {
+  amber:   { border: "border-amber-500/30",   bg: "bg-amber-500/5",   text: "text-amber-500",  label: "bg-amber-500/15 text-amber-600"  },
+  blue:    { border: "border-blue-500/30",    bg: "bg-blue-500/5",    text: "text-blue-500",   label: "bg-blue-500/15 text-blue-600"    },
+  primary: { border: "border-primary/30",     bg: "bg-primary/5",     text: "text-primary",    label: "bg-primary/15 text-primary"      },
 }
 
-function WhyNotIam() {
+function SecurityLayers() {
   return (
     <Section id="comparison">
       <SectionHeading
-        label="05 — Capability Comparison"
-        title="Why Auth0, not just IAM or Cognito?"
-        subtitle="IAM and Cognito are excellent at what they do. Auth0 fills the enterprise identity and agentic authorization gaps they don't cover."
+        label="05 — The Security Stack"
+        title="Three layers, each in its place"
+        subtitle="AWS IAM, Amazon Cognito, and Auth0 A4AA are complementary — not competing. Enterprise agentic applications typically use all three."
       />
-      <div className="rounded-xl border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Capability</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">IAM</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">Cognito</th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-primary">Auth0</th>
-            </tr>
-          </thead>
-          <tbody>
-            {COMPARISON.map((row, i) => (
-              <tr key={row.capability} className={i % 2 === 0 ? "bg-card" : "bg-muted/20"}>
-                <td className="px-4 py-2.5 text-xs font-medium">{row.capability}</td>
-                <td className="px-4 py-2.5 text-center"><Check val={row.iam} /></td>
-                <td className="px-4 py-2.5 text-center"><Check val={row.cognito} /></td>
-                <td className="px-4 py-2.5 text-center bg-primary/5"><Check val={row.auth0} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {LAYERS.map((layer) => {
+          const Icon = layer.icon
+          const c = COLOR_LAYER[layer.color]
+          return (
+            <div key={layer.label} className={`flex flex-col gap-4 rounded-xl border ${c.border} ${c.bg} p-5`}>
+              <div className="flex items-center gap-2.5">
+                <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg bg-background/50`}>
+                  <Icon className={`size-4 ${c.text}`} />
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${c.text}`}>{layer.label}</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">{layer.domain}</p>
+                </div>
+              </div>
+
+              <p className="text-xs leading-relaxed text-muted-foreground">{layer.desc}</p>
+
+              <div className="flex flex-col gap-1">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground mb-0.5">Owns</p>
+                {layer.owns.map((item) => (
+                  <div key={item} className="flex items-start gap-1.5">
+                    <CheckCircle2 className={`size-3 shrink-0 mt-0.5 ${c.text}`} />
+                    <span className="text-xs text-foreground/80">{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className={`rounded-lg border ${c.border} bg-background/40 p-2.5 mt-auto`}>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  <span className={`font-semibold ${c.text}`}>In this demo: </span>
+                  {layer.relationship}
+                </p>
+              </div>
+            </div>
+          )
+        })}
       </div>
-      <div className="rounded-xl border border-primary/30 bg-primary/5 p-5">
-        <p className="text-sm leading-relaxed">
-          <span className="font-bold text-primary">The right answer is both.</span>{" "}
-          Use IAM for AWS resource authorization. Use Auth0 for enterprise identity, agent identity,
-          delegated authorization, and human-in-the-loop approval. They complement — not compete.
-          Auth0 issues the tokens; AgentCore uses them.
+
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="text-sm leading-relaxed text-center">
+          <span className="font-bold">The right answer is all three, layered.</span>
+          {" "}AWS IAM secures the AWS infrastructure. Amazon Cognito handles AWS-native app auth.
+          Auth0 A4AA adds enterprise identity federation, agent identity, delegated authorization,
+          and human-in-the-loop approval — the capabilities that enterprise agentic applications
+          need and that are outside AWS IAM and Cognito's scope by design.
         </p>
       </div>
     </Section>
@@ -556,7 +611,7 @@ export default function ArchitecturePage() {
         <Divider />
         <TokenChainExplained />
         <Divider />
-        <WhyNotIam />
+        <SecurityLayers />
 
         <div className="pb-10 text-center">
           <a
