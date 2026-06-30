@@ -69,20 +69,36 @@ export interface AgentContext {
   actionGroup: string
 }
 
+function agentConfigured(): boolean {
+  return Boolean(
+    process.env.AUTH0_AGENT_CLIENT_ID &&
+    process.env.AUTH0_AGENT_CLIENT_SECRET &&
+    auth0Config().domain,
+  )
+}
+
 /**
- * RFC 8693 token exchange: swaps the user's access_token for a delegated
- * OBO token carrying both the user's sub and the full AgentCore act claim.
- * Extra AgentCore parameters are picked up by the Auth0 post-token-exchange
- * Action and written into the act claim.
+ * Agent-as-Principal OBO exchange using the dedicated M2M client.
+ *
+ * Attempt order:
+ *   1. RFC 8693 token exchange (grant_type=token-exchange) — preferred, full
+ *      delegation chain with sub=user + act=agent in the issued token.
+ *   2. client_credentials fallback — fires when token-exchange grant is not
+ *      enabled on the tenant; the credentials-exchange Auth0 Action still runs
+ *      and writes the full AgentCore act claim into the token.
+ *   3. Simulated — when M2M credentials are absent (dev/preview only).
  */
 export async function exchangeOboToken(
   userAccessToken: string,
   scope: string,
   agentCtx: AgentContext,
 ): Promise<{ preview: string; source: "auth0" | "simulated"; actClaim: Record<string, unknown> }> {
-  const { domain, clientId, clientSecret, audience } = auth0Config()
-  const cimdUrl = getCimdUrl()
+  const { domain, audience } = auth0Config()
+  const agentClientId     = process.env.AUTH0_AGENT_CLIENT_ID
+  const agentClientSecret = process.env.AUTH0_AGENT_CLIENT_SECRET
+  const cimdUrl           = getCimdUrl()
 
+  // The act claim we want in the token — written by the Auth0 Action.
   const actClaim: Record<string, unknown> = {
     sub: cimdUrl,
     "urn:amazon:bedrock:agent_id":     agentCtx.agentId,
@@ -92,23 +108,33 @@ export async function exchangeOboToken(
     "urn:amazon:bedrock:delegated":    true,
   }
 
-  if (domain && clientId && clientSecret) {
+  // Shared AgentCore params passed in every request body so the Auth0 Action
+  // can read them regardless of grant type.
+  const agentParams: Record<string, string> = {
+    actor_token:                             cimdUrl,
+    actor_token_type:                        "urn:ietf:params:oauth:token-type:access_token",
+    "urn:amazon:bedrock:agent_id":           agentCtx.agentId,
+    "urn:amazon:bedrock:alias_id":           agentCtx.aliasId,
+    "urn:amazon:bedrock:session_id":         agentCtx.sessionId,
+    "urn:amazon:bedrock:action_group":       agentCtx.actionGroup,
+    ...(audience ? { audience } : {}),
+  }
+
+  if (agentConfigured() && domain && agentClientId && agentClientSecret) {
+    const base = {
+      client_id:     agentClientId,
+      client_secret: agentClientSecret,
+      ...agentParams,
+    }
+
+    // ── Attempt 1: RFC 8693 token exchange ───────────────────────────────
     try {
       const body = new URLSearchParams({
-        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-        client_id: clientId,
-        client_secret: clientSecret,
-        subject_token: userAccessToken,
+        ...base,
+        grant_type:         "urn:ietf:params:oauth:grant-type:token-exchange",
+        subject_token:      userAccessToken,
         subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-        actor_token: cimdUrl,
-        actor_token_type: "urn:ietf:params:oauth:token-type:access_token",
         scope,
-        // AgentCore context — picked up by the Auth0 post-token-exchange Action.
-        "urn:amazon:bedrock:agent_id":     agentCtx.agentId,
-        "urn:amazon:bedrock:alias_id":     agentCtx.aliasId,
-        "urn:amazon:bedrock:session_id":   agentCtx.sessionId,
-        "urn:amazon:bedrock:action_group": agentCtx.actionGroup,
-        ...(audience ? { audience } : {}),
       })
       const resp = await fetch(`https://${domain}/oauth/token`, {
         method: "POST",
@@ -118,16 +144,36 @@ export async function exchangeOboToken(
       const data = await resp.json()
       if (resp.ok && data.access_token) {
         const token = data.access_token as string
+        console.log("[v0] OBO via RFC 8693 token-exchange ✓")
         return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0", actClaim }
       }
-      console.log("[v0] OBO exchange fell back to simulation:", data.error ?? data)
+
+      // ── Attempt 2: client_credentials fallback ───────────────────────────
+      if (data.error === "unsupported_grant_type" || data.error === "access_denied") {
+        console.log("[v0] token-exchange not supported — trying client_credentials")
+        const ccBody = new URLSearchParams({ ...base, grant_type: "client_credentials" })
+        const ccResp = await fetch(`https://${domain}/oauth/token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: ccBody,
+        })
+        const ccData = await ccResp.json()
+        if (ccResp.ok && ccData.access_token) {
+          const token = ccData.access_token as string
+          console.log("[v0] OBO via client_credentials fallback ✓")
+          return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0", actClaim }
+        }
+        console.log("[v0] client_credentials fallback failed:", ccData.error ?? ccData)
+      } else {
+        console.log("[v0] OBO exchange error:", data.error ?? data)
+      }
     } catch (err) {
-      console.log("[v0] OBO exchange error:", (err as Error).message)
+      console.log("[v0] OBO exchange threw:", (err as Error).message)
     }
   }
 
-  // Simulated OBO token — full AgentCore act claim preserved in payload.
-  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")
+  // ── Attempt 3: Simulated — full AgentCore act claim in payload ────────
+  const header  = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")
   const payload = Buffer.from(JSON.stringify({
     sub: "sim|user",
     act: actClaim,
