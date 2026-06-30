@@ -1,8 +1,7 @@
 "use client"
 
-import { Check, Loader2, Sunrise, KeySquare, ShieldAlert, PlayCircle } from "lucide-react"
+import { Check, Loader2, PlayCircle, ChevronRight, Sunrise, KeySquare, ShieldAlert } from "lucide-react"
 import { useWorkspace } from "@/components/workspace-provider"
-import { GuardrailTooltip } from "@/components/guardrail-tooltip"
 import { cn } from "@/lib/utils"
 import type { StageId } from "@/lib/types"
 
@@ -10,45 +9,58 @@ const STAGES: {
   id: StageId
   n: number
   title: string
-  blurb: string
+  what: string
+  why: string
   icon: typeof Sunrise
-  guardrail: string
-  actions: { label: string; prompt: string }[]
+  actions: { label: string; prompt: string; hint: string }[]
 }[] = [
   {
     id: "context",
     n: 1,
-    title: "Morning Context",
-    blurb: "Carlos logs in → Auth0 custom claims injected into AgentCore sessionAttributes.",
+    title: "Identity Context",
+    what: "Carlos logs in via Auth0 OIDC.",
+    why: "Custom claims (org, tier) are injected into AgentCore sessionAttributes — no DB lookup needed.",
     icon: Sunrise,
-    guardrail:
-      "Auth0 OIDC login mints an id_token carrying corporate identity claims (org, tier). These flow directly into AWS AgentCore sessionState.sessionAttributes — no separate profile lookup.",
     actions: [],
   },
   {
     id: "scoped-tools",
     n: 2,
-    title: "Scoped Tools",
-    blurb: "AgentCore action groups gated by least-privilege OBO tokens.",
+    title: "Scoped Tool Calls",
+    what: "Agent invokes an Action Group.",
+    why: "Each call triggers an OBO token exchange — the agent gets a delegated token scoped to exactly that tool.",
     icon: KeySquare,
-    guardrail:
-      "Each AgentCore action group (sub-agent tool) is gated by an OBO-exchanged token scoped to exactly that operation. The orchestrator cannot invoke a tool beyond its delegated scope.",
     actions: [
-      { label: "Get Platinum pricing", prompt: "Get my Platinum pricing on a Carrier rooftop unit" },
-      { label: "Search 3-ton condensers", prompt: "Find 3-ton condensers in stock near my hub" },
-      { label: "View order history", prompt: "Show my recent order history" },
+      {
+        label: "Get Platinum pricing",
+        prompt: "Get my Platinum pricing on a Carrier rooftop unit",
+        hint: "scope: pricing:read",
+      },
+      {
+        label: "Search 3-ton condensers",
+        prompt: "Find 3-ton condensers in stock near my hub",
+        hint: "scope: inventory:read",
+      },
+      {
+        label: "View order history",
+        prompt: "Show my recent order history",
+        hint: "scope: orders:read",
+      },
     ],
   },
   {
     id: "ciba",
     n: 3,
-    title: "CIBA Climax",
-    blurb: "AgentCore ReturnControl → Auth0 CIBA → step-up token → execute.",
+    title: "CIBA Step-up",
+    what: "High-value order triggers Auth0 CIBA.",
+    why: "AgentCore returns control. Auth0 pushes to Dispatch Manager. Approval mints orders:write + payments:charge.",
     icon: ShieldAlert,
-    guardrail:
-      "AgentCore returns control to the client for CIBA approval. Auth0 pushes to the Dispatch Manager's device. Only after approval does Auth0 mint a step-up token (orders:write + payments:charge) — the agent never had those scopes before.",
     actions: [
-      { label: "Place $4,200 order → triggers CIBA", prompt: "Order a $4,200 Carrier rooftop system for the Miramar job" },
+      {
+        label: "Place $4,200 order",
+        prompt: "Order a $4,200 Carrier rooftop system for the Miramar job",
+        hint: "triggers CIBA → Approve / Deny",
+      },
     ],
   },
 ]
@@ -59,69 +71,93 @@ export function StorylineStages() {
   return (
     <div className="flex flex-col gap-2">
       <h2 className="px-1 font-heading text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Storyline
+        Demo Script
       </h2>
+
       <ol className="flex flex-col gap-2">
-        {STAGES.map((s) => {
+        {STAGES.map((s, idx) => {
           const status = stages[s.id]
-          const Icon = s.icon
-          const isActive = status === "active"
           const isComplete = status === "complete"
+          const isActive = status === "active"
+          const isIdle = status === "idle"
+          const Icon = s.icon
+          const prevComplete = idx === 0 || stages[STAGES[idx - 1].id] === "complete"
 
           return (
-            <li key={s.id}>
-              <GuardrailTooltip label={s.title} detail={s.guardrail} side="right">
-                <div
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-                    isActive && "border-primary/60 bg-brand-soft",
-                    isComplete && "border-border bg-card",
-                    status === "idle" && "border-border/60 bg-card/40 opacity-70",
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-md",
-                      isComplete && "bg-success/20 text-success",
-                      isActive && "bg-primary text-primary-foreground",
-                      status === "idle" && "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {isComplete ? (
-                      <Check className="size-4" />
-                    ) : isActive ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Icon className="size-4" />
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-1.5 w-full min-w-0">
-                    <span className="flex items-center gap-2 text-sm font-medium">
-                      <span className="font-mono text-[11px] text-muted-foreground">
-                        0{s.n}
-                      </span>
-                      {s.title}
-                    </span>
-                    <span className="text-xs leading-snug text-muted-foreground">
-                      {s.blurb}
-                    </span>
-                    {s.actions.length > 0 && (
-                      <div className="flex flex-col gap-1 mt-0.5">
-                        {s.actions.map((a) => (
-                          <button
-                            key={a.prompt}
-                            onClick={() => triggerPrompt(a.prompt)}
-                            className="flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2 py-1 text-left text-[11px] font-medium text-primary transition-colors hover:bg-primary/10 hover:border-primary/50"
-                          >
-                            <PlayCircle className="size-3 shrink-0" />
-                            {a.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+            <li key={s.id} className={cn(
+              "rounded-lg border transition-all duration-300",
+              isComplete && "border-success/30 bg-success/5",
+              isActive && "border-primary/50 bg-primary/5",
+              isIdle && "border-border/50 bg-card/40",
+            )}>
+              {/* Stage header */}
+              <div className="flex items-start gap-3 p-3">
+                <div className={cn(
+                  "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-bold mt-0.5",
+                  isComplete && "bg-success/20 text-success",
+                  isActive && "bg-primary text-primary-foreground",
+                  isIdle && "bg-muted text-muted-foreground border border-border",
+                )}>
+                  {isComplete ? <Check className="size-3.5" /> :
+                   isActive  ? <Loader2 className="size-3.5 animate-spin" /> :
+                               <Icon className="size-3.5" />}
                 </div>
-              </GuardrailTooltip>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-[10px] text-muted-foreground">0{s.n}</span>
+                    <span className="text-sm font-semibold">{s.title}</span>
+                    {isComplete && (
+                      <span className="ml-auto rounded-full bg-success/15 px-1.5 py-0.5 font-mono text-[9px] font-bold text-success">
+                        DONE
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-foreground/80 leading-snug">{s.what}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground leading-snug">{s.why}</p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              {s.actions.length > 0 && !isComplete && (
+                <div className={cn(
+                  "flex flex-col gap-1.5 border-t border-border/40 px-3 pb-3 pt-2",
+                  isIdle && !prevComplete && "opacity-40 pointer-events-none",
+                )}>
+                  <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                    Run this step
+                  </span>
+                  {s.actions.map((a) => (
+                    <button
+                      key={a.prompt}
+                      onClick={() => triggerPrompt(a.prompt)}
+                      className={cn(
+                        "group flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all",
+                        "border-primary/30 bg-primary/5 hover:border-primary/60 hover:bg-primary/10",
+                      )}
+                    >
+                      <PlayCircle className="size-3.5 shrink-0 text-primary" />
+                      <div className="flex flex-1 flex-col min-w-0">
+                        <span className="text-[11px] font-semibold text-foreground leading-none">
+                          {a.label}
+                        </span>
+                        <span className="font-mono text-[9px] text-muted-foreground mt-0.5">
+                          {a.hint}
+                        </span>
+                      </div>
+                      <ChevronRight className="size-3 shrink-0 text-primary/60 group-hover:text-primary transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Completed actions summary */}
+              {isComplete && s.actions.length > 0 && (
+                <div className="border-t border-success/20 px-3 pb-2.5 pt-2">
+                  <span className="font-mono text-[10px] text-success/70">✓ Action group invoked — OBO token issued</span>
+                </div>
+              )}
             </li>
           )
         })}
