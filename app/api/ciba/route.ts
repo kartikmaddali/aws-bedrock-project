@@ -64,7 +64,8 @@ export async function POST(req: Request) {
 
   // Simulated backchannel request — resolves to approved after ~6s of polling.
   const authReqId = `sim_${crypto.randomUUID()}`
-  simRequests.set(authReqId, { createdAt: Date.now(), approveAfterMs: 6000 })
+  // Long timeout — demo presenter resolves via Approve/Deny buttons, not auto-timer.
+  simRequests.set(authReqId, { createdAt: Date.now(), approveAfterMs: 10 * 60 * 1000 })
   const payload: CibaInitResponse = {
     authReqId,
     interval: 2,
