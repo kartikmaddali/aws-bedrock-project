@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronsUpDown, Wind, LogOut, BadgeCheck, FlaskConical } from "lucide-react"
+import { usePathname } from "next/navigation"
+import { ChevronsUpDown, Wind, LogOut, BadgeCheck, FlaskConical, LayoutDashboard, Network } from "lucide-react"
 import { useWorkspace } from "@/components/workspace-provider"
 import { GuardrailTooltip } from "@/components/guardrail-tooltip"
 import { PORTAL_LIST, PORTALS } from "@/lib/theme-config"
@@ -35,10 +36,11 @@ function initials(name: string) {
 export function AppHeader() {
   const { portal, setPortal, session, auth0Configured } = useWorkspace()
   const active = PORTALS[portal]
+  const pathname = usePathname()
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-card/80 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-[1600px] items-center gap-3 px-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4 sm:px-6">
         {/* Brand / logo tile */}
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
@@ -51,6 +53,28 @@ export function AppHeader() {
             <span className="text-[11px] text-muted-foreground">{active.tagline}</span>
           </div>
         </div>
+
+        {/* Page navigation */}
+        <nav className="ml-2 flex items-center gap-1">
+          <a
+            href="/"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              pathname === "/" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <LayoutDashboard className="size-3.5" />
+            Live Demo
+          </a>
+          <a
+            href="/architecture"
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+              pathname === "/architecture" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            <Network className="size-3.5" />
+            Architecture
+          </a>
+        </nav>
 
         {/* Whitelabel portal selector */}
         <div className="ml-1 sm:ml-3">
