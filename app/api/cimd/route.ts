@@ -8,7 +8,10 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const baseUrl = process.env.APP_BASE_URL ?? process.env.AUTH0_BASE_URL ?? ""
 
+  const cimdUrl = `${baseUrl}/.well-known/client-metadata.json`
+
   const document = {
+    client_id: cimdUrl,
     client_name: "HVAC Copilot Agent",
     client_uri: baseUrl,
     logo_uri: `${baseUrl}/favicon.ico`,
