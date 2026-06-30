@@ -31,7 +31,7 @@ export async function GET() {
       "returns:write",
       "refunds:process",
     ].join(" "),
-    application_type: "service",
+    application_type: "web",
     response_types: [],
     contacts: [],
   }
