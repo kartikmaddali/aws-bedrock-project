@@ -34,7 +34,7 @@ function initials(name: string) {
 }
 
 export function ChatPanel() {
-  const { session, portal, addLog, setStage, setOboToken, setStepUpToken, pendingPrompt, clearPendingPrompt } = useWorkspace()
+  const { session, portal, addLog, setStage, setOboToken, setStepUpToken, pendingPrompt, clearPendingPrompt, setActiveToolId } = useWorkspace()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -88,6 +88,7 @@ export function ChatPanel() {
     if (!prompt || busy) return
     setInput("")
     setBusy(true)
+    setActiveToolId(null)
     setStage("scoped-tools", "active")
 
     const userMsg: ChatMessage = { id: crypto.randomUUID(), role: "user", content: prompt }
@@ -159,6 +160,8 @@ export function ChatPanel() {
               meta: `scopes=[${payload.scopes.join(" ")}]`,
             })
           }
+          if (payload.toolId) setActiveToolId(payload.toolId)
+
           if (payload.oboToken) {
             setOboToken(payload.oboToken)
             addLog({
@@ -305,9 +308,14 @@ export function ChatPanel() {
             <Bot className="size-4" />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="text-sm font-semibold">HVAC Copilot</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">HVAC Copilot</span>
+              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wide text-amber-600">
+                AgentCore SIM
+              </span>
+            </div>
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Cpu className="size-3" /> AWS Bedrock AgentCore
+              <Cpu className="size-3" /> AWS Bedrock AgentCore Orchestrator
             </span>
           </div>
         </div>

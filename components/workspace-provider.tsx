@@ -39,6 +39,8 @@ interface WorkspaceContextValue {
   pendingPrompt: string | null
   triggerPrompt: (text: string) => void
   clearPendingPrompt: () => void
+  activeToolId: string | null
+  setActiveToolId: (id: string | null) => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
@@ -77,6 +79,7 @@ export function WorkspaceProvider({
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const triggerPrompt = useCallback((text: string) => setPendingPrompt(text), [])
   const clearPendingPrompt = useCallback(() => setPendingPrompt(null), [])
+  const [activeToolId, setActiveToolId] = useState<string | null>(null)
 
   const [tokenChain, setTokenChain] = useState<TokenChainState>({
     oidc: {
@@ -170,8 +173,10 @@ export function WorkspaceProvider({
       pendingPrompt,
       triggerPrompt,
       clearPendingPrompt,
+      activeToolId,
+      setActiveToolId,
     }),
-    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken, pendingPrompt, triggerPrompt, clearPendingPrompt],
+    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken, pendingPrompt, triggerPrompt, clearPendingPrompt, activeToolId, setActiveToolId],
   )
 
   return (

@@ -19,20 +19,20 @@ const STAGES: {
     id: "context",
     n: 1,
     title: "Morning Context",
-    blurb: "Carlos logs in; custom claims hydrate the agent.",
+    blurb: "Carlos logs in → Auth0 custom claims injected into AgentCore sessionAttributes.",
     icon: Sunrise,
     guardrail:
-      "Auth0 OIDC login mints an id_token carrying corporate identity claims that pass straight to the whitelabeled AI.",
+      "Auth0 OIDC login mints an id_token carrying corporate identity claims (org, tier). These flow directly into AWS AgentCore sessionState.sessionAttributes — no separate profile lookup.",
     actions: [],
   },
   {
     id: "scoped-tools",
     n: 2,
     title: "Scoped Tools",
-    blurb: "Agent bound by least-privilege OAuth scopes.",
+    blurb: "AgentCore action groups gated by least-privilege OBO tokens.",
     icon: KeySquare,
     guardrail:
-      "Every tool call is gated by the exact scopes on the access token. The agent can only do what the token permits.",
+      "Each AgentCore action group (sub-agent tool) is gated by an OBO-exchanged token scoped to exactly that operation. The orchestrator cannot invoke a tool beyond its delegated scope.",
     actions: [
       { label: "Get Platinum pricing", prompt: "Get my Platinum pricing on a Carrier rooftop unit" },
       { label: "Search 3-ton condensers", prompt: "Find 3-ton condensers in stock near my hub" },
@@ -43,10 +43,10 @@ const STAGES: {
     id: "ciba",
     n: 3,
     title: "CIBA Climax",
-    blurb: "High-value action pauses for backchannel approval.",
+    blurb: "AgentCore ReturnControl → Auth0 CIBA → step-up token → execute.",
     icon: ShieldAlert,
     guardrail:
-      "Actions above $2,500 trigger Auth0 CIBA — the app polls the backchannel token endpoint until the Dispatch Manager approves.",
+      "AgentCore returns control to the client for CIBA approval. Auth0 pushes to the Dispatch Manager's device. Only after approval does Auth0 mint a step-up token (orders:write + payments:charge) — the agent never had those scopes before.",
     actions: [
       { label: "Place $4,200 order → triggers CIBA", prompt: "Order a $4,200 Carrier rooftop system for the Miramar job" },
     ],
