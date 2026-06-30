@@ -62,35 +62,32 @@ export async function getAccessToken(): Promise<string | null> {
   return store.get("ha_access_token")?.value ?? null
 }
 
-function oboConfigured(): boolean {
-  return Boolean(
-    process.env.BEDROCK_AGENT_CLIENT_SECRET &&
-      auth0Config().domain &&
-      auth0Config().clientId,
-  )
-}
-
 /**
  * RFC 8693 token exchange: swaps the user's access_token for a delegated
  * OBO token carrying both the user's sub and the agent's act claim.
- * Falls back to a realistic simulated token when not configured.
+ * Uses the regular app credentials (AUTH0_CLIENT_ID/SECRET) — the CIMD URL
+ * is passed as the actor identity so it appears as act.sub in the result.
+ * Falls back to a realistic simulated token when Auth0 is not configured or
+ * the tenant does not support the token-exchange grant.
  */
 export async function exchangeOboToken(
   userAccessToken: string,
   scope: string,
 ): Promise<{ preview: string; source: "auth0" | "simulated" }> {
-  const { domain, audience } = auth0Config()
-  const clientSecret = process.env.BEDROCK_AGENT_CLIENT_SECRET
+  const { domain, clientId, clientSecret, audience } = auth0Config()
 
-  if (oboConfigured() && domain && clientSecret) {
+  if (domain && clientId && clientSecret) {
     try {
       const cimdUrl = getCimdUrl()
       const body = new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-        client_id: cimdUrl,
+        client_id: clientId,
         client_secret: clientSecret,
         subject_token: userAccessToken,
         subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
+        // Thread the CIMD URL as the actor so it surfaces as act.sub in the token.
+        actor_token: cimdUrl,
+        actor_token_type: "urn:ietf:params:oauth:token-type:access_token",
         scope,
         ...(audience ? { audience } : {}),
       })
@@ -104,7 +101,7 @@ export async function exchangeOboToken(
         const token = data.access_token as string
         return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0" }
       }
-      console.log("[v0] OBO exchange failed:", data)
+      console.log("[v0] OBO exchange fell back to simulation:", data.error ?? data)
     } catch (err) {
       console.log("[v0] OBO exchange error:", (err as Error).message)
     }
