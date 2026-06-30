@@ -2,6 +2,7 @@
 
 import { AppHeader } from "@/components/app-header"
 import { ArchitectureStrip } from "@/components/architecture-strip"
+import { AgentIdentityCard } from "@/components/agent-identity-card"
 import { StorylineStages } from "@/components/storyline-stages"
 import { TokenVault } from "@/components/token-vault"
 import { TokenChain } from "@/components/token-chain"
@@ -14,8 +15,9 @@ export function Workspace() {
       <AppHeader />
       <ArchitectureStrip />
       <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[18rem_minmax(0,1fr)_24rem] lg:gap-5">
-        {/* Left rail: storyline + token vault */}
-        <aside className="flex flex-col gap-5 lg:order-1">
+        {/* Left rail: agent identity + storyline + token vault */}
+        <aside className="flex flex-col gap-3 lg:order-1">
+          <AgentIdentityCard />
           <StorylineStages />
           <TokenVault />
         </aside>

@@ -62,33 +62,52 @@ export async function getAccessToken(): Promise<string | null> {
   return store.get("ha_access_token")?.value ?? null
 }
 
+export interface AgentContext {
+  agentId: string
+  aliasId: string
+  sessionId: string
+  actionGroup: string
+}
+
 /**
  * RFC 8693 token exchange: swaps the user's access_token for a delegated
- * OBO token carrying both the user's sub and the agent's act claim.
- * Uses the regular app credentials (AUTH0_CLIENT_ID/SECRET) — the CIMD URL
- * is passed as the actor identity so it appears as act.sub in the result.
- * Falls back to a realistic simulated token when Auth0 is not configured or
- * the tenant does not support the token-exchange grant.
+ * OBO token carrying both the user's sub and the full AgentCore act claim.
+ * Extra AgentCore parameters are picked up by the Auth0 post-token-exchange
+ * Action and written into the act claim.
  */
 export async function exchangeOboToken(
   userAccessToken: string,
   scope: string,
-): Promise<{ preview: string; source: "auth0" | "simulated" }> {
+  agentCtx: AgentContext,
+): Promise<{ preview: string; source: "auth0" | "simulated"; actClaim: Record<string, unknown> }> {
   const { domain, clientId, clientSecret, audience } = auth0Config()
+  const cimdUrl = getCimdUrl()
+
+  const actClaim: Record<string, unknown> = {
+    sub: cimdUrl,
+    "urn:amazon:bedrock:agent_id":     agentCtx.agentId,
+    "urn:amazon:bedrock:alias_id":     agentCtx.aliasId,
+    "urn:amazon:bedrock:session_id":   agentCtx.sessionId,
+    "urn:amazon:bedrock:action_group": agentCtx.actionGroup,
+    "urn:amazon:bedrock:delegated":    true,
+  }
 
   if (domain && clientId && clientSecret) {
     try {
-      const cimdUrl = getCimdUrl()
       const body = new URLSearchParams({
         grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
         client_id: clientId,
         client_secret: clientSecret,
         subject_token: userAccessToken,
         subject_token_type: "urn:ietf:params:oauth:token-type:access_token",
-        // Thread the CIMD URL as the actor so it surfaces as act.sub in the token.
         actor_token: cimdUrl,
         actor_token_type: "urn:ietf:params:oauth:token-type:access_token",
         scope,
+        // AgentCore context — picked up by the Auth0 post-token-exchange Action.
+        "urn:amazon:bedrock:agent_id":     agentCtx.agentId,
+        "urn:amazon:bedrock:alias_id":     agentCtx.aliasId,
+        "urn:amazon:bedrock:session_id":   agentCtx.sessionId,
+        "urn:amazon:bedrock:action_group": agentCtx.actionGroup,
         ...(audience ? { audience } : {}),
       })
       const resp = await fetch(`https://${domain}/oauth/token`, {
@@ -99,7 +118,7 @@ export async function exchangeOboToken(
       const data = await resp.json()
       if (resp.ok && data.access_token) {
         const token = data.access_token as string
-        return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0" }
+        return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "auth0", actClaim }
       }
       console.log("[v0] OBO exchange fell back to simulation:", data.error ?? data)
     } catch (err) {
@@ -107,19 +126,17 @@ export async function exchangeOboToken(
     }
   }
 
-  // Simulated OBO token — realistic JWT structure for demo purposes.
+  // Simulated OBO token — full AgentCore act claim preserved in payload.
   const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url")
-  const payload = Buffer.from(
-    JSON.stringify({
-      sub: "sim|user",
-      act: { sub: getCimdUrl() },
-      scope,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    }),
-  ).toString("base64url")
+  const payload = Buffer.from(JSON.stringify({
+    sub: "sim|user",
+    act: actClaim,
+    scope,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })).toString("base64url")
   const token = `${header}.${payload}.sim_sig_${crypto.randomUUID().slice(0, 8)}`
-  return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "simulated" }
+  return { preview: `${token.slice(0, 20)}…${token.slice(-8)}`, source: "simulated", actClaim }
 }
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null

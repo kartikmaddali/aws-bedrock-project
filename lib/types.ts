@@ -97,6 +97,7 @@ export interface OboTokenNode extends TokenNode {
   actSub: string
   scope: string
   toolId: string
+  actClaim?: Record<string, unknown>
 }
 
 export interface StepUpTokenNode extends TokenNode {

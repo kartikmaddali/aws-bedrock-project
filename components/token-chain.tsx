@@ -196,11 +196,18 @@ export function TokenChain() {
 
   const oboJson: Record<string, unknown> = obo ? {
     sub: obo.sub,
-    act: { sub: obo.actSub },
+    // Full AgentCore delegation chain — enriched by Auth0 post-token-exchange Action.
+    act: obo.actClaim ?? {
+      sub: obo.actSub,
+      "urn:amazon:bedrock:agent_id":     "sim-agent-hvac-01",
+      "urn:amazon:bedrock:alias_id":     "sim-alias-prod",
+      "urn:amazon:bedrock:session_id":   obo.sub,
+      "urn:amazon:bedrock:action_group": obo.toolId,
+      "urn:amazon:bedrock:delegated":    true,
+    },
     scope: obo.scope,
     iss: "https://your-tenant.auth0.com/",
     aud: "https://api.hvac-copilot.demo",
-    "agent:cimd": cimdUrl,
     iat: Math.floor(Date.now() / 1000) - 30,
     exp: Math.floor(Date.now() / 1000) + 3570,
   } : {}

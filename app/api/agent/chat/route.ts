@@ -9,6 +9,7 @@ import {
   getAccessToken,
   exchangeOboToken,
   getCimdUrl,
+  type AgentContext,
 } from "@/lib/auth0"
 import { TOOLS, CIBA_THRESHOLD_USD } from "@/lib/tools"
 import type { ToolDefinition, OboTokenNode } from "@/lib/types"
@@ -258,12 +259,21 @@ export async function POST(req: Request) {
 
     // ── OBO token exchange (RFC 8693) ─────────────────────────────────────
     // Exchange the user's access_token for a delegated token scoped to exactly
-    // what this tool needs. Simulated when BEDROCK_AGENT_CLIENT_SECRET is absent.
+    // what this tool needs. AgentCore context is included so the Auth0 Action
+    // can write the full delegation chain into the act claim.
     let oboToken: OboTokenNode | null = null
     if (tool && scopes.length > 0) {
       const userAccessToken = await getAccessToken()
       const subjectToken = userAccessToken ?? "simulated_subject_token"
-      const exchanged = await exchangeOboToken(subjectToken, scopes.join(" "))
+
+      const agentCtx: AgentContext = {
+        agentId:     process.env.AWS_BEDROCK_AGENT_ID     ?? "sim-agent-hvac-01",
+        aliasId:     process.env.AWS_BEDROCK_AGENT_ALIAS_ID ?? "sim-alias-prod",
+        sessionId:   session.sub,
+        actionGroup: tool.id,
+      }
+
+      const exchanged = await exchangeOboToken(subjectToken, scopes.join(" "), agentCtx)
       oboToken = {
         preview: exchanged.preview,
         ts: new Date().toLocaleTimeString("en-US", { hour12: false }),
@@ -272,10 +282,11 @@ export async function POST(req: Request) {
         actSub: getCimdUrl(),
         scope: scopes.join(" "),
         toolId: tool.id,
+        actClaim: exchanged.actClaim,
       }
-      // Thread the OBO token preview into Bedrock session state.
       sessionAttributes["obo:token_preview"] = exchanged.preview
-      sessionAttributes["obo:scope"] = scopes.join(" ")
+      sessionAttributes["obo:scope"]         = scopes.join(" ")
+      sessionAttributes["obo:action_group"]  = tool.id
     }
 
     emit("done", {
