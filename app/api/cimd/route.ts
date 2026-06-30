@@ -15,6 +15,7 @@ export async function GET() {
     client_name: "HVAC Copilot Agent",
     client_uri: baseUrl,
     logo_uri: `${baseUrl}/favicon.ico`,
+    redirect_uris: [`${baseUrl}/api/auth/callback`],
     grant_types: [
       "authorization_code",
       "refresh_token",
