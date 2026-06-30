@@ -134,14 +134,14 @@ function getJwks() {
 
 /** Verify a real Auth0-issued JWT and project it into CarlosClaims. */
 export async function verifyAndProject(token: string): Promise<CarlosClaims | null> {
-  const { domain, audience } = auth0Config()
+  const { domain, clientId } = auth0Config()
   const keys = getJwks()
   try {
     let payload: Record<string, unknown>
     if (keys && domain) {
       const verified = await jwtVerify(token, keys, {
         issuer: `https://${domain}/`,
-        // id_token audience is always the client_id, not the API audience.
+        // id_token audience is the client_id, not the API audience.
         audience: clientId || undefined,
       })
       payload = verified.payload as Record<string, unknown>
