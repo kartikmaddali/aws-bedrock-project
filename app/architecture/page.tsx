@@ -456,35 +456,6 @@ function TokenChainExplained() {
   )
 }
 
-// ── Section 6: Fine-Grained Authorization ────────────────────────────────────
-
-const AUTH0_FGA_TUPLES = `# Relationship model — ReBAC (Google Zanzibar / OpenFGA)
-
-type user {}
-type organization {
-  relations
-    define member: [user]
-    define contractor: [user]
-}
-type order {
-  relations
-    define owner: [organization]
-    define viewer: member from owner
-}
-type inventory {
-  relations
-    define accessible_by: contractor from owner
-}
-
-# Tuples (facts stored in Auth0 FGA)
-carlos     → member     → apex-cooling-llc
-carlos     → contractor → airflow-apis
-order#4200 → owner      → apex-cooling-llc
-
-# Authorization check
-check: can carlos view order#4200?
-→ YES  (carlos → member → apex-cooling-llc → owner → order#4200)`
-
 const CEDAR_POLICY = `// Amazon Verified Permissions — Cedar policy
 // Governs what AgentCore action groups can execute
 
@@ -496,7 +467,7 @@ permit (
 when {
   context.auth.scope.contains("inventory:read") &&
   context.agent.cimd == "https://aws-bedrock-project.vercel.app
-                         /.well-known/client-metadata.json" &&
+                         /.well-known/client-metadata.json"  &&
   context.user.tier  in ["Gold", "Platinum"]
 };
 
@@ -506,26 +477,24 @@ permit (
   resource
 )
 when {
-  context.auth.scope.contains("orders:write")        &&
-  context.auth.scope.contains("payments:charge")     &&
-  context.ciba.approved == true                       &&
+  context.auth.scope.contains("orders:write")    &&
+  context.auth.scope.contains("payments:charge") &&
+  context.ciba.approved == true                  &&
   context.order.value   <= context.user.credit_limit
 };`
 
 const AUTHZ_STACK = [
-  { layer: "Identity",       tech: "Auth0 OIDC",                   q: "Who is the user?",                       color: "blue"   },
-  { layer: "Delegation",     tech: "Auth0 OBO (RFC 8693)",          q: "Which agent, on whose behalf?",          color: "violet" },
-  { layer: "Coarse-grained", tech: "Scoped tokens",                 q: "What operations are allowed?",           color: "green"  },
-  { layer: "Fine-grained",   tech: "Auth0 FGA (ReBAC)",             q: "On which specific resources?",           color: "orange" },
-  { layer: "Policy engine",  tech: "Amazon Verified Permissions",   q: "Does context satisfy the policy?",       color: "red"    },
+  { layer: "Identity",       tech: "Auth0 OIDC",                 q: "Who is the user?",                 color: "blue"   },
+  { layer: "Delegation",     tech: "Auth0 OBO (RFC 8693)",        q: "Which agent, on whose behalf?",    color: "violet" },
+  { layer: "Coarse-grained", tech: "Scoped tokens",               q: "What operations are allowed?",     color: "green"  },
+  { layer: "Fine-grained",   tech: "Amazon Verified Permissions", q: "Does context satisfy the policy?", color: "amber"  },
 ]
 
 const STACK_COLORS: Record<string, string> = {
   blue:   "border-blue-500/40 bg-blue-500/10 text-blue-500",
   violet: "border-violet-500/40 bg-violet-500/10 text-violet-500",
   green:  "border-success/40 bg-success/10 text-success",
-  orange: "border-warning/40 bg-warning/10 text-warning",
-  red:    "border-destructive/40 bg-destructive/10 text-destructive",
+  amber:  "border-amber-500/40 bg-amber-500/10 text-amber-500",
 }
 
 function FineGrainedAuth() {
@@ -534,8 +503,8 @@ function FineGrainedAuth() {
       <div className="flex items-start justify-between gap-4">
         <SectionHeading
           label="06 — Fine-Grained Authorization"
-          title="The next authorization layer"
-          subtitle="Scoped tokens answer what the agent can do. Fine-grained authorization answers on which specific resources — and whether the full context satisfies policy."
+          title="Amazon Verified Permissions + Cedar"
+          subtitle="Scoped tokens answer what the agent can do. Cedar policies answer whether the full request context — agent identity, user attributes, approval state — satisfies the authorization rule."
         />
         <div className="shrink-0 flex items-center gap-1.5 rounded-full border border-warning/40 bg-warning/10 px-3 py-1.5">
           <FlaskConical className="size-3.5 text-warning" />
@@ -558,148 +527,89 @@ function FineGrainedAuth() {
               </div>
               <span className="text-[11px] text-muted-foreground italic">{row.q}</span>
             </div>
-            {i === 2 && (
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="font-mono text-[9px] text-warning font-bold bg-warning/10 border border-warning/30 rounded px-1.5 py-0.5">extends ↓</span>
-              </div>
-            )}
-            {i !== 2 && <div className="w-20 shrink-0" />}
           </div>
         ))}
       </div>
 
-      {/* Two product panels */}
-      <div className="grid gap-5 lg:grid-cols-2">
-
-        {/* Auth0 FGA */}
-        <div className="flex flex-col gap-4 rounded-xl border border-primary/30 bg-primary/5 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/15">
-                <GitBranch className="size-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold">Auth0 FGA</h3>
-                <p className="text-[10px] text-muted-foreground">Okta Fine-Grained Authorization · OpenFGA / Zanzibar model</p>
-              </div>
+      {/* AVP main panel */}
+      <div className="flex flex-col gap-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
+              <Scale className="size-6 text-amber-500" />
             </div>
-            <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 font-mono text-[9px] font-bold text-primary">ReBAC</span>
+            <div>
+              <h3 className="text-base font-bold">Amazon Verified Permissions</h3>
+              <p className="text-xs text-muted-foreground">AWS · Cedar policy language · ABAC/RBAC</p>
+            </div>
           </div>
+          <span className="shrink-0 rounded-full bg-amber-500/15 px-2.5 py-1 font-mono text-[10px] font-bold text-amber-600">AWS Native</span>
+        </div>
 
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">What it adds</p>
             <p className="text-xs leading-relaxed text-foreground/80">
-              Relationship-based access control. Instead of just checking scopes, Auth0 FGA evaluates
-              a graph of relationships — Carlos is a member of Apex Cooling, which placed Order #4200,
-              therefore Carlos can view that order. Scopes can't express this.
+              Cedar is a purpose-built, human-readable policy language. Each AgentCore action group
+              is governed by a Cedar policy that evaluates the complete request context:
+              agent CIMD identity, user tier, OAuth scopes, CIBA approval status, and business-level
+              attributes like order value vs. credit limit.
             </p>
           </div>
-
           <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">In this demo context</p>
-            <div className="flex flex-col gap-1 text-xs">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Why it fits AgentCore</p>
+            <div className="flex flex-col gap-1.5">
               {[
-                "Can Carlos view order #4200? → YES (via org membership)",
-                "Can Carlos view competitor's orders? → NO (no relationship)",
-                "Can agent access only Apex Cooling's inventory? → YES",
-              ].map((ex) => (
-                <div key={ex} className="flex items-start gap-1.5">
-                  <CheckCircle2 className="size-3 shrink-0 text-primary mt-0.5" />
-                  <span className="text-muted-foreground">{ex}</span>
+                "Policies live outside the agent — no hardcoded authz logic in the action group",
+                "CIMD URL is the Cedar principal — agent identity in every policy evaluation",
+                "Auth0 OBO token claims (scope, act, ciba.approved) feed directly into Cedar context",
+                "Audit trail via AWS CloudTrail — every policy decision logged",
+              ].map((item) => (
+                <div key={item} className="flex items-start gap-1.5">
+                  <CheckCircle2 className="size-3 shrink-0 text-amber-500 mt-0.5" />
+                  <span className="text-xs text-muted-foreground leading-snug">{item}</span>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Model example</p>
-            <pre className="overflow-x-auto rounded-lg border border-primary/20 bg-background/60 p-3 font-mono text-[10px] leading-relaxed text-foreground/80">
-              {AUTH0_FGA_TUPLES}
-            </pre>
           </div>
         </div>
 
-        {/* Amazon Verified Permissions */}
-        <div className="flex flex-col gap-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
-                <Scale className="size-5 text-amber-500" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold">Amazon Verified Permissions</h3>
-                <p className="text-[10px] text-muted-foreground">AWS · Cedar policy language</p>
-              </div>
-            </div>
-            <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[9px] font-bold text-amber-600">ABAC</span>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">What it adds</p>
-            <p className="text-xs leading-relaxed text-foreground/80">
-              Attribute-based policy evaluation using Cedar — a purpose-built, human-readable policy language.
-              Each AgentCore action group is governed by a Cedar policy that evaluates the full context:
-              agent identity, user tier, scope, CIBA approval status, and order value.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">In this demo context</p>
-            <div className="flex flex-col gap-1 text-xs">
-              {[
-                "process_order only if ciba.approved=true AND value ≤ credit limit",
-                "search_inventory only if user.tier in [Gold, Platinum]",
-                "Agent identity (CIMD URL) validated in every policy",
-              ].map((ex) => (
-                <div key={ex} className="flex items-start gap-1.5">
-                  <CheckCircle2 className="size-3 shrink-0 text-amber-500 mt-0.5" />
-                  <span className="text-muted-foreground">{ex}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cedar policy example</p>
-            <pre className="overflow-x-auto rounded-lg border border-amber-500/20 bg-background/60 p-3 font-mono text-[10px] leading-relaxed text-foreground/80">
-              {CEDAR_POLICY}
-            </pre>
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cedar policies for this demo</p>
+          <pre className="overflow-x-auto rounded-lg border border-amber-500/20 bg-background/60 p-4 font-mono text-[10px] leading-relaxed text-foreground/80">
+            {CEDAR_POLICY}
+          </pre>
         </div>
       </div>
 
-      {/* Better together */}
-      <div className="grid gap-4 sm:grid-cols-3 rounded-xl border border-border bg-card p-5">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <SlidersHorizontal className="size-4 text-primary" />
-            <span className="text-xs font-bold">Auth0 FGA handles</span>
-          </div>
-          <p className="text-xs text-muted-foreground leading-snug">
-            User ↔ resource relationships. Who owns what, who belongs where,
-            who can see which records — evaluated as a graph, not a list of rules.
-          </p>
+      {/* Honest Auth0 FGA callout */}
+      <div className="rounded-xl border border-border bg-card p-5 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <GitBranch className="size-4 text-primary" />
+          <span className="text-sm font-bold">What about Auth0 FGA?</span>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <Scale className="size-4 text-amber-500" />
-            <span className="text-xs font-bold">Amazon Verified Permissions handles</span>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Auth0 FGA (OpenFGA / Zanzibar ReBAC model) solves a <span className="text-foreground font-medium">different problem</span> than
+          Amazon Verified Permissions. AVP evaluates attribute-based policies against a known context.
+          Auth0 FGA traverses a <span className="text-foreground font-medium">relationship graph</span> — useful when authorization
+          depends on indirect ownership chains: Carlos → member → Apex Cooling → owner → Order #4200.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 text-xs">
+          <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+            <p className="font-semibold text-amber-600 mb-1">Use Amazon Verified Permissions when:</p>
+            <p className="text-muted-foreground leading-snug">
+              Authorization rules are attribute-based and context-driven — agent identity, user tier, scope, business values.
+              The natural choice for AWS-native AgentCore deployments.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground leading-snug">
-            Agent + context policy evaluation. Cedar policies govern what the agent
-            can do given its identity, the user's attributes, and the full request context.
-          </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5">
-            <ArrowRight className="size-4 text-success" />
-            <span className="text-xs font-bold">Together they answer</span>
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+            <p className="font-semibold text-primary mb-1">Use Auth0 FGA when:</p>
+            <p className="text-muted-foreground leading-snug">
+              Authorization depends on complex ownership or membership graphs across multi-cloud or
+              non-AWS systems — or when your identity layer is Auth0 and you want a single vendor for
+              both identity and fine-grained authz.
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground leading-snug">
-            "Can <em>this agent</em>, acting on behalf of <em>this user</em>,
-            perform <em>this action</em> on <em>this specific resource</em>,
-            given <em>this context</em>?"
-          </p>
         </div>
       </div>
     </Section>
