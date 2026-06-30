@@ -9,6 +9,7 @@ import {
   ShieldAlert,
   Cpu,
   CornerDownLeft,
+  CheckCircle2,
 } from "lucide-react"
 import { useWorkspace } from "@/components/workspace-provider"
 import { GuardrailTooltip } from "@/components/guardrail-tooltip"
@@ -22,12 +23,6 @@ import { cn } from "@/lib/utils"
 import type { ChatMessage, OboTokenNode } from "@/lib/types"
 import type { StepUpResult } from "@/components/ciba-dialog"
 
-const SUGGESTIONS = [
-  "Find 3-ton condensers in stock near my hub",
-  "Get my Platinum pricing on a Carrier rooftop unit",
-  "Order a $4,200 Carrier rooftop system for the Miramar job",
-  "Show my recent order history",
-]
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()
@@ -186,6 +181,8 @@ export function ChatPanel() {
           )
 
           if (payload.requiresApproval) {
+            // CIBA path — do NOT mark Stage 2 complete here.
+            // Stage 2 should only complete from a successful scoped (non-CIBA) tool call.
             setStage("ciba", "active")
             setCibaRequest({
               toolId: payload.toolId ?? "process_order",
@@ -195,6 +192,15 @@ export function ChatPanel() {
           } else {
             setStage("scoped-tools", "complete")
             if (payload.toolId) runScopedTool(payload.toolId, payload.scopes)
+            // Guide presenter to Stage 3 after first successful scoped tool call.
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: crypto.randomUUID(),
+                role: "system",
+                content: "✓ Stage 2 complete — OBO token issued and scopes verified. Use the Demo Script to trigger the CIBA step next.",
+              },
+            ])
             setBusy(false)
           }
         } else if (event === "error") {
@@ -357,7 +363,14 @@ export function ChatPanel() {
           </div>
 
           {messages.map((m) =>
-            m.role === "user" ? (
+            m.role === "system" ? (
+              <div key={m.id} className="flex justify-center">
+                <div className="flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1.5">
+                  <CheckCircle2 className="size-3.5 text-success" />
+                  <span className="text-xs font-medium text-success">{m.content}</span>
+                </div>
+              </div>
+            ) : m.role === "user" ? (
               <div key={m.id} className="flex justify-end gap-3">
                 <div className="max-w-[80%] rounded-lg rounded-tr-sm bg-primary px-3.5 py-2.5 text-sm leading-relaxed text-primary-foreground">
                   {m.content}
@@ -412,19 +425,14 @@ export function ChatPanel() {
         </div>
       </div>
 
-      {/* Suggestions */}
+      {/* Empty state — guide user to the Demo Script panel */}
       {messages.length === 0 && (
-        <div className="flex flex-wrap gap-2 px-4 pb-2">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              onClick={() => send(s)}
-              disabled={busy}
-              className="rounded-full border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground disabled:opacity-50"
-            >
-              {s}
-            </button>
-          ))}
+        <div className="flex flex-1 items-center justify-center px-6 py-8">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Bot className="size-8 text-muted-foreground/40" />
+            <p className="text-sm font-medium text-muted-foreground">Use the Demo Script</p>
+            <p className="text-xs text-muted-foreground/70">Click the action buttons in the left panel to drive the story step by step.</p>
+          </div>
         </div>
       )}
 

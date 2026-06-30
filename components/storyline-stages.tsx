@@ -121,41 +121,51 @@ export function StorylineStages() {
 
               {/* Action buttons */}
               {s.actions.length > 0 && !isComplete && (
-                <div className={cn(
-                  "flex flex-col gap-1.5 border-t border-border/40 px-3 pb-3 pt-2",
-                  isIdle && !prevComplete && "opacity-40 pointer-events-none",
-                )}>
-                  <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-                    Run this step
-                  </span>
-                  {s.actions.map((a) => (
-                    <button
-                      key={a.prompt}
-                      onClick={() => triggerPrompt(a.prompt)}
-                      className={cn(
-                        "group flex w-full items-center gap-2 rounded-md border px-2.5 py-2 text-left transition-all",
-                        "border-primary/30 bg-primary/5 hover:border-primary/60 hover:bg-primary/10",
-                      )}
-                    >
-                      <PlayCircle className="size-3.5 shrink-0 text-primary" />
-                      <div className="flex flex-1 flex-col min-w-0">
-                        <span className="text-[11px] font-semibold text-foreground leading-none">
-                          {a.label}
-                        </span>
-                        <span className="font-mono text-[9px] text-muted-foreground mt-0.5">
-                          {a.hint}
-                        </span>
-                      </div>
-                      <ChevronRight className="size-3 shrink-0 text-primary/60 group-hover:text-primary transition-colors" />
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-1.5 border-t border-border/40 px-3 pb-3 pt-2">
+                  {!prevComplete ? (
+                    // Hard lock — show why it's locked
+                    <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        Complete Stage 0{idx} first to unlock this step.
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+                        Run this step
+                      </span>
+                      {s.actions.map((a) => (
+                        <button
+                          key={a.prompt}
+                          onClick={() => triggerPrompt(a.prompt)}
+                          className="group flex w-full items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-2 text-left transition-all hover:border-primary/60 hover:bg-primary/10"
+                        >
+                          <PlayCircle className="size-3.5 shrink-0 text-primary" />
+                          <div className="flex flex-1 flex-col min-w-0">
+                            <span className="text-[11px] font-semibold text-foreground leading-none">
+                              {a.label}
+                            </span>
+                            <span className="font-mono text-[9px] text-muted-foreground mt-0.5">
+                              {a.hint}
+                            </span>
+                          </div>
+                          <ChevronRight className="size-3 shrink-0 text-primary/60 group-hover:text-primary transition-colors" />
+                        </button>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
 
-              {/* Completed actions summary */}
+              {/* Completed — next step prompt */}
               {isComplete && s.actions.length > 0 && (
-                <div className="border-t border-success/20 px-3 pb-2.5 pt-2">
-                  <span className="font-mono text-[10px] text-success/70">✓ Action group invoked — OBO token issued</span>
+                <div className="border-t border-success/20 px-3 pb-2.5 pt-2 flex flex-col gap-1">
+                  <span className="font-mono text-[10px] text-success/80">✓ OBO token issued — scopes verified</span>
+                  {idx < STAGES.length - 1 && (
+                    <span className="text-[10px] text-muted-foreground">
+                      Stage 0{idx + 2} is now unlocked ↓
+                    </span>
+                  )}
                 </div>
               )}
             </li>
