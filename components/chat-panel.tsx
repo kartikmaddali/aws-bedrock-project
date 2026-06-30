@@ -34,7 +34,7 @@ function initials(name: string) {
 }
 
 export function ChatPanel() {
-  const { session, portal, addLog, setStage, setOboToken, setStepUpToken } = useWorkspace()
+  const { session, portal, addLog, setStage, setOboToken, setStepUpToken, pendingPrompt, clearPendingPrompt } = useWorkspace()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [busy, setBusy] = useState(false)
@@ -47,6 +47,13 @@ export function ChatPanel() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })
   }, [messages, busy])
+
+  useEffect(() => {
+    if (pendingPrompt && !busy) {
+      clearPendingPrompt()
+      send(pendingPrompt)
+    }
+  }, [pendingPrompt, busy])
 
   const runScopedTool = async (toolId: string, scopes: string[]) => {
     try {

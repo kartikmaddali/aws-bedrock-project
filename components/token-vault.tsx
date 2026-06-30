@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import useSWR from "swr"
-import { Boxes, Plug, RefreshCw, Link2Off, CircleAlert } from "lucide-react"
+import { Boxes, Plug, RefreshCw, Link2Off, CircleAlert, ChevronDown, ChevronUp } from "lucide-react"
 import { GuardrailTooltip } from "@/components/guardrail-tooltip"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -20,10 +21,13 @@ const STATUS: Record<
 }
 
 export function TokenVault() {
+  const [collapsed, setCollapsed] = useState(true)
   const { data, isLoading } = useSWR<{ tools: ConnectedTool[]; source: string }>(
     "/api/token-vault",
     fetcher,
   )
+
+  const connectedCount = data?.tools.filter((t) => t.status === "connected").length ?? 0
 
   return (
     <div className="flex flex-col gap-2">
@@ -32,16 +36,28 @@ export function TokenVault() {
           <Boxes className="size-3.5" />
           Token Vault
         </h2>
-        <GuardrailTooltip
-          label="Auth0 Token Vault & My Account API"
-          detail="Connection status is read from the Token Vault / My Account API. The agent borrows scoped third-party tokens on Carlos's behalf without ever seeing his credentials."
-          side="left"
-        >
-          <span className="text-[10px] font-medium text-primary">A4AA</span>
-        </GuardrailTooltip>
+        <div className="flex items-center gap-2">
+          <GuardrailTooltip
+            label="Auth0 Token Vault & My Account API"
+            detail="Connection status is read from the Token Vault / My Account API. The agent borrows scoped third-party tokens on Carlos's behalf without ever seeing his credentials."
+            side="left"
+          >
+            <span className="text-[10px] font-medium text-primary">A4AA</span>
+          </GuardrailTooltip>
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {collapsed ? (
+              <><span>{connectedCount} connected</span><ChevronDown className="size-3" /></>
+            ) : (
+              <ChevronUp className="size-3" />
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2">
+      {!collapsed && <div className="flex flex-col gap-2">
         {isLoading &&
           Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-16 w-full rounded-lg" />
@@ -54,39 +70,28 @@ export function TokenVault() {
             <div
               key={tool.id}
               className={cn(
-                "flex flex-col gap-2 rounded-lg border border-border bg-card p-3",
-                tool.status === "disconnected" && "opacity-70",
+                "flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2",
+                tool.status === "disconnected" && "opacity-50",
               )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <Icon className="size-4" />
-                  </div>
-                  <div className="flex flex-col leading-tight">
-                    <span className="text-sm font-medium">{tool.name}</span>
-                    <span className="text-[11px] text-muted-foreground">{tool.category}</span>
-                  </div>
+              <div className="flex items-center gap-2 min-w-0">
+                <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+                <div className="flex flex-col leading-tight min-w-0">
+                  <span className="text-xs font-medium truncate">{tool.name}</span>
+                  {tool.scopes.length > 0 && (
+                    <span className="truncate font-mono text-[10px] text-primary/70">
+                      {tool.scopes.join(" ")}
+                    </span>
+                  )}
                 </div>
-                <Badge variant={meta.variant} className="text-[10px]">
-                  {meta.label}
-                </Badge>
               </div>
-              <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-                <span className="inline-flex items-center gap-1 font-mono">
-                  <RefreshCw className="size-3" />
-                  {tool.via} · {tool.lastSync}
-                </span>
-                {tool.scopes.length > 0 && (
-                  <span className="truncate font-mono text-primary/80">
-                    {tool.scopes.join(" ")}
-                  </span>
-                )}
-              </div>
+              <Badge variant={meta.variant} className="shrink-0 text-[10px]">
+                {meta.label}
+              </Badge>
             </div>
           )
         })}
-      </div>
+      </div>}
     </div>
   )
 }

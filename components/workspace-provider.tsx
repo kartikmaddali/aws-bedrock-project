@@ -36,6 +36,9 @@ interface WorkspaceContextValue {
   tokenChain: TokenChainState
   setOboToken: (token: OboTokenNode) => void
   setStepUpToken: (token: StepUpTokenNode) => void
+  pendingPrompt: string | null
+  triggerPrompt: (text: string) => void
+  clearPendingPrompt: () => void
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null)
@@ -71,6 +74,10 @@ export function WorkspaceProvider({
     "scoped-tools": "idle",
     ciba: "idle",
   })
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const triggerPrompt = useCallback((text: string) => setPendingPrompt(text), [])
+  const clearPendingPrompt = useCallback(() => setPendingPrompt(null), [])
+
   const [tokenChain, setTokenChain] = useState<TokenChainState>({
     oidc: {
       preview: idTokenPreview,
@@ -160,8 +167,11 @@ export function WorkspaceProvider({
       tokenChain,
       setOboToken,
       setStepUpToken,
+      pendingPrompt,
+      triggerPrompt,
+      clearPendingPrompt,
     }),
-    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken],
+    [session, auth0Configured, portal, setPortal, stages, setStage, log, addLog, tokenChain, setOboToken, setStepUpToken, pendingPrompt, triggerPrompt, clearPendingPrompt],
   )
 
   return (
