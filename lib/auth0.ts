@@ -141,7 +141,8 @@ export async function verifyAndProject(token: string): Promise<CarlosClaims | nu
     if (keys && domain) {
       const verified = await jwtVerify(token, keys, {
         issuer: `https://${domain}/`,
-        audience: audience || undefined,
+        // id_token audience is always the client_id, not the API audience.
+        audience: clientId || undefined,
       })
       payload = verified.payload as Record<string, unknown>
     } else {
