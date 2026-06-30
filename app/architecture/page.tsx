@@ -589,28 +589,42 @@ function FineGrainedAuth() {
           <span className="text-sm font-bold">What about Auth0 FGA?</span>
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          Auth0 FGA (OpenFGA / Zanzibar ReBAC model) solves a <span className="text-foreground font-medium">different problem</span> than
-          Amazon Verified Permissions. AVP evaluates attribute-based policies against a known context.
-          Auth0 FGA traverses a <span className="text-foreground font-medium">relationship graph</span> — useful when authorization
-          depends on indirect ownership chains: Carlos → member → Apex Cooling → owner → Order #4200.
+          Auth0 FGA is built on <span className="text-foreground font-medium">OpenFGA</span> (open source, CNCF sandbox project — the same
+          Zanzibar/ReBAC model Google uses for Drive and Docs sharing). It is <span className="text-foreground font-medium">completely
+          IdP-independent</span> — it works equally well with Amazon Cognito, Azure AD, Okta, or any JWT issuer.
+          The "Auth0" in the name refers to the managed hosting only, not an identity dependency.
+        </p>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          AVP and Auth0 FGA solve <span className="text-foreground font-medium">fundamentally different authorization problems</span> and
+          can coexist in the same system:
         </p>
         <div className="grid gap-3 sm:grid-cols-2 text-xs">
           <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-            <p className="font-semibold text-amber-600 mb-1">Use Amazon Verified Permissions when:</p>
-            <p className="text-muted-foreground leading-snug">
-              Authorization rules are attribute-based and context-driven — agent identity, user tier, scope, business values.
-              The natural choice for AWS-native AgentCore deployments.
+            <p className="font-semibold text-amber-600 mb-1">Amazon Verified Permissions (ABAC)</p>
+            <p className="text-muted-foreground leading-snug mb-2">
+              Policy rules evaluated against attributes and context. Best for: agent authorization,
+              role-based rules, business logic gates.
             </p>
+            <code className="block font-mono text-[10px] text-amber-700/80">
+              permit if user.tier == "Platinum" AND ciba.approved == true
+            </code>
           </div>
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
-            <p className="font-semibold text-primary mb-1">Use Auth0 FGA when:</p>
-            <p className="text-muted-foreground leading-snug">
-              Authorization depends on complex ownership or membership graphs across multi-cloud or
-              non-AWS systems — or when your identity layer is Auth0 and you want a single vendor for
-              both identity and fine-grained authz.
+            <p className="font-semibold text-primary mb-1">Auth0 FGA / OpenFGA (ReBAC)</p>
+            <p className="text-muted-foreground leading-snug mb-2">
+              Relationship graph traversal. Best for: resource ownership, multi-tenant data isolation,
+              sharing models. Works with any IdP.
             </p>
+            <code className="block font-mono text-[10px] text-primary/80">
+              carlos → member → apex-cooling → owner → order#4200
+            </code>
           </div>
         </div>
+        <p className="text-[11px] text-muted-foreground leading-snug italic">
+          For this AWS-native demo, AVP is the natural fit. In a multi-cloud deployment or where
+          resource sharing graphs are complex, OpenFGA/Auth0 FGA would sit alongside AVP —
+          not replace it.
+        </p>
       </div>
     </Section>
   )
