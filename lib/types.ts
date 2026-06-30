@@ -1,4 +1,4 @@
-// Shared types for the Watsco HVAC Copilot — Auth0 for AI Agents x AWS Bedrock AgentCore.
+// Shared types for the AirFlow HVAC Copilot — Auth0 for AI Agents x AWS Bedrock AgentCore.
 
 // Namespaced custom-claim keys. Kept here (client-safe) so both server code and
 // client components can reference them without pulling in `next/headers`.

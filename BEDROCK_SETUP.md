@@ -50,14 +50,14 @@ All steps use the AWS Console. Estimated time: ~20 minutes.
 
 2. Fill in:
    - **Agent name**: `hvac-copilot`
-   - **Description**: HVAC supply copilot for Watsco contractors
+   - **Description**: HVAC supply copilot for AirFlow contractors
    - **Agent resource role**: Create and use a new service role (auto-created)
    - **Model**: Anthropic Claude Sonnet 3.5 v2 (or Claude 3.7 Sonnet)
 
 3. Paste the following as the **Agent instructions**:
 
 ```
-You are the HVAC Copilot for Watsco, a B2B supply-chain assistant for HVAC contractors.
+You are the HVAC Copilot for AirFlow, a B2B supply-chain assistant for HVAC contractors.
 
 You help contractors with:
 - Searching live inventory across 670+ distribution centers
@@ -93,13 +93,13 @@ it directly. This is the architecture this app uses.
 2. Define the following **function schemas** (add each as a separate function):
 
 ### `search_inventory`
-- **Description**: Search Watsco's product catalog for HVAC/R equipment and supplies, including real-time stock levels across all distribution centers.
+- **Description**: Search AirFlow's product catalog for HVAC/R equipment and supplies, including real-time stock levels across all distribution centers.
 - **Parameters**:
   - `query` (string, required) — product name, SKU, or category to search for
   - `location` (string, optional) — regional hub or zip code to prioritize nearby stock
 
 ### `update_pricing`
-- **Description**: Retrieve dynamic, contractor-specific pricing for any Watsco product, factoring in volume discounts and loyalty tiers.
+- **Description**: Retrieve dynamic, contractor-specific pricing for any AirFlow product, factoring in volume discounts and loyalty tiers.
 - **Parameters**:
   - `product_id` (string, required) — SKU or product identifier
   - `quantity` (integer, optional) — units for volume discount calculation

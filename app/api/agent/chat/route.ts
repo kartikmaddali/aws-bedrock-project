@@ -124,7 +124,7 @@ function simulatedReply(
     return `Here is your Platinum-tier contractor pricing for ${org}. Volume discounts are already applied — want me to turn this into a bulk order?`
   }
   if (tool.id === "search_inventory") {
-    return `I'm querying live stock across Watsco's 670+ distribution centers for ${org}. Several matching SKUs are in stock at your regional hub.`
+    return `I'm querying live stock across AirFlow's 670+ distribution centers for ${org}. Several matching SKUs are in stock at your regional hub.`
   }
   if (tool.id === "view_order_history") {
     return `Pulling ${org}'s recent purchase orders, shipment status, and invoices now.`

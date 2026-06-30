@@ -43,7 +43,7 @@ const NODES: ArchNode[] = [
   },
   {
     id: "resource",
-    label: "Watsco APIs",
+    label: "AirFlow APIs",
     sublabel: "Inventory · Orders · Pricing",
     icon: Database,
   },

@@ -11,7 +11,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Watsco HVAC Copilot — Auth0 A4AA × AWS Bedrock AgentCore',
+  title: 'AirFlow HVAC Copilot — Auth0 A4AA × AWS Bedrock AgentCore',
   description:
     'A whitelabeled HVAC distribution copilot demonstrating Auth0 for AI Agents (custom claims, scoped tools, CIBA backchannel approval, Token Vault) bridged to AWS Bedrock AgentCore.',
   generator: 'v0.app',

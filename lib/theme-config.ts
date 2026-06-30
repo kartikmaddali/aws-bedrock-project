@@ -21,19 +21,19 @@ export interface PortalTheme {
 export const PORTALS: Record<PortalId, PortalTheme> = {
   watsco: {
     id: "watsco",
-    brand: "Watsco Supply Hub",
-    label: "Watsco Supply Hub",
+    brand: "AirFlow Supply Hub",
+    label: "AirFlow Supply Hub",
     monogram: "WS",
     tagline: "Distribution-grade HVAC/R copilot",
     welcome:
-      "Welcome to the Watsco Supply Hub. I can pull live inventory, contractor pricing, and place bulk orders across 670+ distribution centers.",
+      "Welcome to the AirFlow Supply Hub. I can pull live inventory, contractor pricing, and place bulk orders across 670+ distribution centers.",
   },
   apex: {
     id: "apex",
     brand: "Apex Co-Branded Portal",
     label: "Apex Co-Branded Portal",
     monogram: "AC",
-    tagline: "Apex Cooling LLC — powered by Watsco",
+    tagline: "Apex Cooling LLC — powered by AirFlow",
     welcome:
       "Apex Cooling field desk online. Carlos, I have your Platinum contract pricing and your crew's order history ready to go.",
   },

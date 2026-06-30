@@ -7,7 +7,7 @@ export const TOOLS: ToolDefinition[] = [
     id: "search_inventory",
     name: "Search Inventory",
     description:
-      "Search Watsco's vast product catalog for HVAC/R equipment and supplies, including real-time stock levels across all 670+ distribution centers.",
+      "Search AirFlow's vast product catalog for HVAC/R equipment and supplies, including real-time stock levels across all 670+ distribution centers.",
     scopes: ["inventory:read"],
     requiresApproval: false,
   },
@@ -15,7 +15,7 @@ export const TOOLS: ToolDefinition[] = [
     id: "update_pricing",
     name: "Get Contractor Pricing",
     description:
-      "Retrieve dynamic, contractor-specific pricing for any Watsco product, factoring in volume discounts and loyalty tiers.",
+      "Retrieve dynamic, contractor-specific pricing for any AirFlow product, factoring in volume discounts and loyalty tiers.",
     scopes: ["pricing:read"],
     requiresApproval: false,
   },

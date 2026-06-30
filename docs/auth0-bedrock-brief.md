@@ -19,20 +19,20 @@ platform — illustrated through a real-world B2B supply chain scenario.
 
 ---
 
-# The Fictional Use Case — Apex Cooling & Watsco Supply Hub
+# The Fictional Use Case — Apex Cooling & AirFlow Supply Hub
 
 ## Background
 
-**Watsco** is a national HVAC equipment distributor with 670+ distribution
+**AirFlow** is a national HVAC equipment distributor with 670+ distribution
 centers. They are building an AI-powered copilot that allows their contractor
 customers to search inventory, get pricing, and place bulk equipment orders —
 all through natural language.
 
-**Apex Cooling LLC** is one of Watsco's Platinum-tier contractor customers.
+**Apex Cooling LLC** is one of AirFlow's Platinum-tier contractor customers.
 Their field operations manager, **Carlos Mendez**, needs to place equipment
 orders, check stock, and process returns — often from job sites on his phone.
 
-Watsco wants to give Carlos an AI agent that:
+AirFlow wants to give Carlos an AI agent that:
 - Knows who he is and what he is authorized to do
 - Applies his Platinum contract pricing automatically
 - Requires his Dispatch Manager's sign-off on orders above $2,500
@@ -44,7 +44,7 @@ Watsco wants to give Carlos an AI agent that:
 
 ## 7:45 AM — Carlos logs in
 
-Carlos opens the Watsco Supply Hub on his phone. He authenticates via **Auth0**
+Carlos opens the AirFlow Supply Hub on his phone. He authenticates via **Auth0**
 using his corporate SSO (Okta). Auth0 enriches his identity token with two
 custom claims:
 
@@ -151,7 +151,7 @@ endpoint.
 
 ## 2:00 PM — Compliance review
 
-Watsco's compliance officer opens the audit panel. Every action is logged:
+AirFlow's compliance officer opens the audit panel. Every action is logged:
 
 | Time | Event | Detail |
 |------|-------|--------|
@@ -173,7 +173,7 @@ No manual logging code required.
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                  Watsco Supply Hub                    │
+│                  AirFlow Supply Hub                    │
 │                   (Next.js App)                       │
 └──────────────┬───────────────────────────────────────┘
                │
@@ -253,7 +253,7 @@ No manual logging code required.
 
 # Suggested Next Steps
 
-1. **Live demo** — Run the Watsco Supply Hub against a real Bedrock Agent to
+1. **Live demo** — Run the AirFlow Supply Hub against a real Bedrock Agent to
    show the identity chain end-to-end (15 min)
 
 2. **CIBA walkthrough** — Trigger a high-value order approval live to show the

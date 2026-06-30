@@ -17,7 +17,7 @@ export function LoginScreen({ auth0Configured }: { auth0Configured: boolean }) {
             <Wind className="size-6" />
           </div>
           <div className="flex flex-col leading-tight">
-            <span className="font-heading text-lg font-semibold">Watsco HVAC Copilot</span>
+            <span className="font-heading text-lg font-semibold">AirFlow HVAC Copilot</span>
             <span className="text-xs text-muted-foreground">Auth0 for AI Agents × AWS Bedrock</span>
           </div>
         </div>
