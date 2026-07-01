@@ -73,8 +73,10 @@ export async function POST() {
     label: "Authorize API access (client grant)",
     ok: grant.ok,
     detail: grant.ok
-      ? `Granted scopes: ${scopes.join(", ")}`
-      : (grant.errors?.[0] ?? "Grant failed — may already exist"),
+      ? grant.alreadyExists
+        ? `Already authorized for ${audience ?? "https://api.hvac-copilot.demo"} — no changes needed`
+        : `Granted scopes: ${scopes.join(", ")}`
+      : (grant.errors?.[0] ?? "Grant failed"),
   })
 
   return NextResponse.json({

@@ -139,6 +139,7 @@ export async function registerCimdClient(cimdUrl: string): Promise<CimdRegisterR
 export interface ClientGrantResult {
   ok: boolean
   grantId?: string
+  alreadyExists?: boolean
   errors?: string[]
 }
 
@@ -161,7 +162,14 @@ export async function createClientGrant(
       signal,
     })
     const data = await resp.json()
-    if (!resp.ok) return { ok: false, errors: [data.message ?? JSON.stringify(data)] }
+    if (!resp.ok) {
+      const msg = data.message ?? JSON.stringify(data)
+      // Auth0 returns 409-style conflict as a plain error message — treat as success (no-op).
+      if (typeof msg === "string" && msg.toLowerCase().includes("already exists")) {
+        return { ok: true, alreadyExists: true }
+      }
+      return { ok: false, errors: [msg] }
+    }
     return { ok: true, grantId: data.id }
   } catch (err) {
     return { ok: false, errors: [(err as Error).name === "AbortError" ? "Client grant request timed out" : (err as Error).message] }
