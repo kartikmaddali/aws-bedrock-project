@@ -88,6 +88,36 @@ export interface CimdRegisterResult {
   errors?: string[]
 }
 
+export interface CimdStatusResult {
+  registered: boolean
+  clientId?: string
+}
+
+/** Check whether a CIMD URL is already registered, without registering it. */
+export async function getCimdClientStatus(cimdUrl: string): Promise<CimdStatusResult> {
+  const { domain } = auth0Config()
+  const token = await getManagementToken()
+  if (!domain || !token) return { registered: false }
+
+  const { signal, clear } = withTimeout(8000)
+  try {
+    const resp = await fetch(
+      `https://${domain}/api/v2/clients?external_client_id=${encodeURIComponent(cimdUrl)}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal },
+    )
+    if (!resp.ok) return { registered: false }
+    const data = await resp.json()
+    if (Array.isArray(data) && data.length > 0) {
+      return { registered: true, clientId: data[0].client_id }
+    }
+    return { registered: false }
+  } catch {
+    return { registered: false }
+  } finally {
+    clear()
+  }
+}
+
 /**
  * Register (or find existing) CIMD client.
  * Checks /api/v2/clients?external_client_id=... first — registration is

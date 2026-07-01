@@ -17,6 +17,10 @@ const nextConfig = {
         source: "/.well-known/client-metadata.json",
         destination: "/api/cimd",
       },
+      {
+        source: "/.well-known/agents/:slug/metadata.json",
+        destination: "/api/cimd-agent/:slug",
+      },
     ]
   },
 }
