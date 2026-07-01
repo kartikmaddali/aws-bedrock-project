@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth0-mgmt"
 
 export const dynamic = "force-dynamic"
+export const maxDuration = 20
 
 // Orchestrates the on-the-fly CIMD registration flow:
 //   1. Preview  — validate the CIMD URL + document

@@ -52,15 +52,13 @@ export function AgentIdentityCard() {
   const runLiveRegistration = async () => {
     setRegistering(true)
     const actId = startActivity("Register Agent (CIMD)")
-    addActivityStep(actId, {
-      kind: "agentcore",
-      label: "Calling Auth0 Management API",
-      detail: "Preview → Register → Client Grant sequence",
-      status: "running",
-    })
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
 
     try {
-      const resp = await fetch("/api/agent/register", { method: "POST" })
+      const resp = await fetch("/api/agent/register", { method: "POST", signal: controller.signal })
+      clearTimeout(timeout)
       const data = await resp.json()
 
       if (!data.configured) {
@@ -86,10 +84,14 @@ export function AgentIdentityCard() {
 
       completeActivity(actId, data.ok ? "Agent Registered via Management API ✓" : "Registration Failed")
     } catch (err) {
+      clearTimeout(timeout)
+      const isTimeout = (err as Error).name === "AbortError"
       addActivityStep(actId, {
         kind: "result",
-        label: "Request failed",
-        detail: (err as Error).message,
+        label: isTimeout ? "Request timed out after 15s" : "Request failed",
+        detail: isTimeout
+          ? "Management API did not respond in time — check AUTH0_MGMT_CLIENT_ID/SECRET and that the M2M app is authorized for the Management API."
+          : (err as Error).message,
         status: "error",
       })
       completeActivity(actId, "Register Agent — Failed")
