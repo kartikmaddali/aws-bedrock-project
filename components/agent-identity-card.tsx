@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Bot, CheckCircle2, ExternalLink, Code2, ChevronDown, ChevronUp, FileJson } from "lucide-react"
+import { Bot, CheckCircle2, ExternalLink, Code2, ChevronDown, ChevronUp, FileJson, Zap, Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useWorkspace } from "@/components/workspace-provider"
 
 const CIMD_URL = "https://aws-bedrock-project.vercel.app/.well-known/client-metadata.json"
 
@@ -45,6 +46,57 @@ function CodeBlock({ content }: { content: string }) {
 export function AgentIdentityCard() {
   const [expanded, setExpanded] = useState(false)
   const [modal, setModal] = useState<ModalType>(null)
+  const [registering, setRegistering] = useState(false)
+  const { startActivity, addActivityStep, completeActivity } = useWorkspace()
+
+  const runLiveRegistration = async () => {
+    setRegistering(true)
+    const actId = startActivity("Register Agent (CIMD)")
+    addActivityStep(actId, {
+      kind: "agentcore",
+      label: "Calling Auth0 Management API",
+      detail: "Preview → Register → Client Grant sequence",
+      status: "running",
+    })
+
+    try {
+      const resp = await fetch("/api/agent/register", { method: "POST" })
+      const data = await resp.json()
+
+      if (!data.configured) {
+        addActivityStep(actId, {
+          kind: "result",
+          label: "Management API not configured",
+          detail: data.message,
+          status: "error",
+        })
+        completeActivity(actId, "Register Agent — Not Configured")
+        return
+      }
+
+      for (const step of data.steps as { label: string; ok: boolean; detail: string }[]) {
+        addActivityStep(actId, {
+          kind: step.ok ? "obo" : "result",
+          label: step.label,
+          detail: step.detail,
+          source: "auth0",
+          status: step.ok ? "done" : "error",
+        })
+      }
+
+      completeActivity(actId, data.ok ? "Agent Registered via Management API ✓" : "Registration Failed")
+    } catch (err) {
+      addActivityStep(actId, {
+        kind: "result",
+        label: "Request failed",
+        detail: (err as Error).message,
+        status: "error",
+      })
+      completeActivity(actId, "Register Agent — Failed")
+    } finally {
+      setRegistering(false)
+    }
+  }
 
   return (
     <>
@@ -111,6 +163,18 @@ export function AgentIdentityCard() {
               The CIMD URL is this agent's <span className="text-foreground">cryptographic identity</span> in Auth0.
               In production, AWS hosts this document per agent — enterprises register it once via DCR.
             </p>
+
+            {/* Live registration */}
+            <button
+              onClick={runLiveRegistration}
+              disabled={registering}
+              className="flex items-center justify-center gap-1.5 rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] font-semibold text-amber-600 hover:bg-amber-500/20 transition-colors disabled:opacity-60"
+            >
+              {registering
+                ? <Loader2 className="size-3 animate-spin" />
+                : <Zap className="size-3" />}
+              {registering ? "Registering via Management API…" : "Register Live via Management API"}
+            </button>
 
             {/* Action buttons */}
             <div className="flex gap-1.5">
